@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / secrets — NEVER commit
+.env
+.env.*
+golazo-auto-API-key.txt
+*API-key*.txt
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local render output
+/tmp/card_*.png
+*.png
+
+# Archives
+files.zip
+
+# NOTE: fonts/ is intentionally NOT ignored — TTF files are required at runtime.

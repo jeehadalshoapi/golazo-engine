@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golazo Studio — القوالب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;800;900&family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#0D3D07;--yellow:#7DDB5B;--red:#E63946;--paper:#FFFFFF;--line:#24332a;--panel:#0f1611;--panel2:#16201a;--muted:#9fb3a6}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#070b08;color:#fff;font-family:'Cairo',sans-serif;min-height:100vh}
+  .topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,rgba(13,61,7,.6),transparent);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+  .topbar b{font-family:'Anton';letter-spacing:1px;font-size:20px}
+  .topbar b .y{color:var(--yellow)}
+  .topbar span.t{color:var(--muted);font-size:13px;font-weight:700}
+  .wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 60px)}
+  @media(max-width:880px){.wrap{grid-template-columns:1fr}}
+  .side{border-left:1px solid var(--line);padding:14px;overflow:auto;max-height:calc(100vh - 60px);background:rgba(8,12,9,.6)}
+  .side h3{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin:6px 2px 10px}
+  .tpls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .tpl{border:1px solid var(--line);background:var(--panel);border-radius:11px;padding:11px 8px;cursor:pointer;text-align:center;font-weight:700;font-size:12px;color:#dfeee4;transition:.15s}
+  .tpl:hover{border-color:var(--yellow);transform:translateY(-2px)}
+  .tpl.active{background:linear-gradient(160deg,var(--navy),#0a2b05);border-color:var(--yellow);box-shadow:0 0 0 1px var(--yellow) inset}
+  .tpl .ic{font-size:20px;display:block;margin-bottom:5px}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field input,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:#eafff0;border-radius:9px;padding:8px 10px;font-family:'Cairo';font-size:14px;outline:none}
+  .field input:focus,.field textarea:focus{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(125,219,91,.13)}
+  .field textarea{resize:vertical;min-height:70px;line-height:1.6}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .main{padding:22px;display:flex;flex-direction:column;align-items:center;gap:16px}
+  .shell{width:min(540px,92vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px var(--line)}
+  #stage,#stage svg{width:100%;height:100%;display:block}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .btn{border:1px solid var(--line);background:var(--panel);color:#eafff0;border-radius:10px;padding:10px 16px;font-family:'Barlow Condensed';font-weight:800;font-size:16px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--yellow);transform:translateY(-1px)}
+  .btn.primary{background:var(--yellow);color:#06210a;border-color:transparent}
+</style>
+</head>
+<body>
+  <div class="topbar"><b>GOLAZO <span class="y">STUDIO</span></b><span class="t">قوالب المنشورات — عائلة بصرية واحدة</span></div>
+  <div class="wrap">
+    <aside class="side">
+      <h3>نوع القالب</h3>
+      <div class="tpls" id="tpls"></div>
+      <h3 style="margin-top:16px">التفاصيل</h3>
+      <div id="fields"></div>
+    </aside>
+    <main class="main">
+      <div class="shell"><div id="stage"></div></div>
+      <div class="toolbar">
+        <button class="btn primary" id="dlSvg">⬇ تنزيل SVG</button>
+        <button class="btn" id="dlPng">🖼 تنزيل PNG</button>
+        <button class="btn" id="copySvg">📋 نسخ الكود</button>
+        <button class="btn" id="prevSlide" style="display:none">‹ السابقة</button>
+        <span id="slideCounter" style="display:none;align-self:center;color:#cfe;font-family:'Cairo';font-weight:800;font-size:14px"></span>
+        <button class="btn" id="nextSlide" style="display:none">التالية ›</button>
+        <button class="btn primary" id="dlAll" style="display:none">⬇ كل الشرائح PNG</button>
+      </div>
+    </main>
+  </div>
+
+<script>
+const C={navy:'#0D3D07', yellow:'#7DDB5B', red:'#E63946', paper:'#FFFFFF'};
+const W=1080,H=1080;
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ===== shared seeded texture ===== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+let TEX=null;
+function buildTexture(){
+  if(TEX) return TEX;
+  const rng=mulberry32(20260605), rnd=(a,b)=>a+rng()*(b-a), pick=a=>a[Math.floor(rng()*a.length)];
+  const cols=[C.yellow,C.yellow,C.yellow,C.navy]; let s='';
+  for(let i=0;i<72;i++){
+    const x=rnd(20,W-20).toFixed(0), y=rnd(20,H-20).toFixed(0), col=pick(cols), op=rnd(0.107,0.449).toFixed(3), rot=rnd(0,90).toFixed(0), sz=rnd(10,48), sw=(sz*0.10).toFixed(1), h=(sz/2).toFixed(1);
+    const ty=pick(['plus','x','circle','tri','dot','dot']);
+    if(ty==='plus') s+=`<g transform="translate(${x},${y}) rotate(${rot})" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"><path d="M0 ${-h} V ${h} M ${-h} 0 H ${h}"/></g>`;
+    else if(ty==='x') s+=`<g transform="translate(${x},${y}) rotate(${rot})" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"><path d="M${-h} ${-h} L ${h} ${h} M ${h} ${-h} L ${-h} ${h}"/></g>`;
+    else if(ty==='circle') s+=`<circle cx="${x}" cy="${y}" r="${h}" fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}"/>`;
+    else if(ty==='tri') s+=`<g transform="translate(${x},${y}) rotate(${rot})" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round" opacity="${op}"><path d="M0 ${-h} L ${h} ${h} L ${-h} ${h} Z"/></g>`;
+    else s+=`<circle cx="${x}" cy="${y}" r="${(sz*0.16).toFixed(1)}" fill="${col}" opacity="${op}"/>`;
+  }
+  for(let i=0;i<11;i++){
+    const x=rnd(70,W-70).toFixed(0), y=rnd(90,H-50).toFixed(0), op=rnd(0.054,0.161).toFixed(3), rot=rnd(-28,28).toFixed(0), fs=rnd(28,84).toFixed(0);
+    s+=`<text x="${x}" y="${y}" transform="rotate(${rot} ${x} ${y})" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.yellow}" opacity="${op}">GOLAZO!</text>`;
+  }
+  TEX=s; return TEX;
+}
+function diagBars(tx,ty,rot,bars){let s=`<g transform="translate(${tx},${ty}) rotate(${rot})">`,off=0;bars.forEach(b=>{s+=`<rect x="0" y="${off}" width="${b.len}" height="${b.th}" fill="${b.c}" transform="skewX(-20)"/>`;off+=b.th+14;});return s+'</g>';}
+
+/* ===== shared frame (decorative + top + footer) ===== */
+function topSlot(d){
+  if(d.tlogo && d.tlogo.trim()) return `<image href="${esc(d.tlogo)}" x="492" y="26" width="96" height="96" preserveAspectRatio="xMidYMid meet"/>`;
+  return `<g transform="translate(540,70)">
+    <circle cx="-92" cy="0" r="16" fill="none" stroke="${C.navy}" stroke-width="3"/><line x1="-110" y1="0" x2="-74" y2="0" stroke="${C.navy}" stroke-width="3"/>
+    <text x="-58" y="13" font-family="Anton" font-size="40" fill="${C.navy}">GOLAZO</text>
+  </g>`;
+}
+function frame(d){
+  return `
+  <rect width="${W}" height="${H}" fill="${C.paper}"/>
+  <rect width="${W}" height="${H}" filter="url(#paper)"/>
+  ${buildTexture()}
+  <g opacity="0.05"><path d="M780,360 L900,420 L900,560 Q900,650 780,700 Q660,650 660,560 L660,420 Z" fill="none" stroke="${C.navy}" stroke-width="10"/></g>
+  <g transform="translate(120,1055) rotate(-90)"><text x="0" y="0" font-family="Anton" font-size="240" fill="${C.yellow}" opacity="0.28" letter-spacing="2">GOLAZO!</text></g>
+  <g transform="translate(1050,760) rotate(-90)"><text x="0" y="0" font-family="Anton" font-weight="800" font-size="44" fill="${C.navy}" letter-spacing="6">GOLAZO!</text></g>
+  ${diagBars(-6,46,45,[{len:160,th:24,c:C.navy},{len:120,th:24,c:C.yellow},{len:82,th:24,c:C.navy}])}
+  ${diagBars(1086,46,135,[{len:160,th:24,c:C.yellow},{len:120,th:24,c:C.navy},{len:82,th:24,c:C.yellow}])}
+  ${diagBars(1086,1034,-135,[{len:150,th:22,c:C.navy},{len:112,th:22,c:C.yellow},{len:76,th:22,c:C.navy}])}
+  ${diagBars(-6,1034,-45,[{len:120,th:20,c:C.yellow},{len:86,th:20,c:C.navy}])}
+  <g transform="translate(1010,980) rotate(-135)" opacity="0.9"><rect x="0" y="0" width="240" height="6" fill="${C.navy}" transform="skewX(-20)"/><rect x="0" y="20" width="200" height="6" fill="${C.yellow}" transform="skewX(-20)"/></g>
+  <g transform="translate(58,1052) rotate(-90)"><rect x="0" y="-30" width="330" height="60" fill="${C.navy}" transform="skewX(-12)"/><text x="165" y="10" text-anchor="middle" font-family="Barlow Condensed" font-weight="900" font-style="italic" font-size="40" fill="${C.yellow}" transform="skewX(-12)" letter-spacing="1">${esc(d.hashtag)}</text></g>
+  ${topSlot(d)}
+  <line x1="360" y1="978" x2="720" y2="978" stroke="${C.yellow}" stroke-width="4"/>
+  <text x="540" y="1016" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="28" fill="${C.navy}">الكرة بالأرقام  ·  @golazo.arabic</text>`;
+}
+
+/* ===== reusable arabic text block ===== */
+function arBlock(x,y,w,h,html,weight,size,color,align){
+  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="font-family:Cairo,sans-serif;font-weight:${weight};color:${color};font-size:${size}px;line-height:1.4;text-align:${align||'center'};white-space:pre-line">${html}</div></foreignObject>`;
+}
+function arBox(x,y,w,h,html,weight,size,color){
+  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;justify-content:center;height:100%;font-family:Cairo,sans-serif;font-weight:${weight};color:${color};font-size:${size}px;line-height:1.35;text-align:center;white-space:pre-line">${html}</div></foreignObject>`;
+}
+function formDots(cx,y,str){
+  const map={'ف':'#2f9e44','w':'#2f9e44','W':'#2f9e44','ت':'#9aa7b8','d':'#9aa7b8','D':'#9aa7b8','خ':'#E63946','l':'#E63946','L':'#E63946'};
+  const toks=String(str||'').trim().split(/\s+/).filter(Boolean);
+  const sp=46, total=(toks.length-1)*sp, sx=cx-total/2; let s='';
+  toks.forEach((t,i)=>{ const col=map[t]||C.navy; s+=`<circle cx="${(sx+i*sp).toFixed(0)}" cy="${y}" r="16" fill="${col}"/>`; });
+  return s;
+}
+/* FULL TIME style two-word title (centered) */
+function blockTitle(t1,t2){
+  return `
+  <rect x="545" y="150" width="320" height="14" fill="${C.navy}"/>
+  <rect x="230" y="232" width="320" height="82" fill="${C.yellow}"/>
+  <rect x="545" y="160" width="320" height="150" fill="${C.navy}"/>
+  <text x="245" y="300" font-family="Anton" font-size="150" fill="${C.navy}">${esc(t1)}</text>
+  <text x="705" y="300" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.yellow}">${esc(t2)}</text>`;
+}
+/* team crest: logo image if URL, else dashed shield placeholder */
+function crest(cx,cy,logo){
+  if(logo && logo.trim()) return `<image href="${esc(logo)}" x="${cx-72}" y="${cy-72}" width="144" height="144" preserveAspectRatio="xMidYMid meet"/>`;
+  return `<g><path d="M${cx},${cy-74} L${cx+64},${cy-50} L${cx+64},${cy+16} Q${cx+64},${cy+58} ${cx},${cy+82} Q${cx-64},${cy+58} ${cx-64},${cy+16} L${cx-64},${cy-50} Z" fill="none" stroke="${C.navy}" stroke-width="4" stroke-dasharray="8 8"/><text x="${cx}" y="${cy+8}" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="24" fill="${C.navy}">شعار</text></g>`;
+}
+/* carousel: split text into slides (separated by a line of --- ); first non-empty line = title */
+function parseSlides(str){
+  return String(str||'').split(/\n\s*-{3,}\s*\n/).map(b=>{
+    let title='', body=[], started=false;
+    b.split('\n').forEach(l=>{ if(!started){ if(l.trim()!==''){ title=l.trim(); started=true; } } else body.push(l); });
+    return {title, body:body.join('\n').trim()};
+  }).filter(s=>s.title||s.body);
+}
+function svgToPng(svg){return new Promise((res,rej)=>{const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const cv=document.createElement('canvas');cv.width=W*2;cv.height=H*2;const ctx=cv.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0,W,H);cv.toBlob(b=>{URL.revokeObjectURL(url);res(b);},'image/png');};img.onerror=()=>{URL.revokeObjectURL(url);rej();};img.src=url;});}
+function badge(t){const ch=esc(String(t||'').trim().charAt(0)||'•');return `<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${C.navy};color:${C.yellow};font-family:Anton;font-size:17px;flex:none">${ch}</span>`;}
+
+/* ===== templates registry ===== */
+const SHARED=[{k:'tlogo',label:'رابط شعار القسم/البطولة (اختياري)',def:''},{k:'hashtag',label:'الهاشتاج',def:'#GOLAZO'}];
+const TEMPLATES={
+  breaking:{
+    name:'خبر عاجل', icon:'🚨',
+    fields:[
+      {k:'time',label:'الوقت',def:'الآن'},
+      {k:'headline',label:'العنوان الرئيسي',def:'بنزيمة يجدّد عقده مع الاتحاد حتى 2029',multiline:true},
+      {k:'details',label:'التفاصيل',def:'عقد جديد لمدة 3 سنوات\nراتب 100 مليون يورو سنوياً\nإعلان رسمي من النادي',multiline:true},
+      {k:'source',label:'المصدر',def:'نادي الاتحاد الرسمي'},
+    ],
+    content:d=>`
+      <rect x="380" y="160" width="320" height="74" rx="10" fill="${C.red}"/>
+      <circle cx="430" cy="197" r="8" fill="#fff"/>
+      <text x="555" y="210" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="#fff">خبر عاجل</text>
+      <text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>
+      ${arBlock(90,280,900,300,esc(d.headline),900,74,C.navy,'center')}
+      <line x1="150" y1="630" x2="930" y2="630" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBlock(120,660,840,240,esc(d.details),600,40,'#13350c','center')}
+      <text x="540" y="930" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="30" fill="${C.navy}">المصدر: ${esc(d.source)}</text>`
+  },
+  confirmed:{
+    name:'انتقال رسمي', icon:'✅',
+    fields:[
+      {k:'player',label:'اللاعب',def:'كريم بنزيمة'},
+      {k:'club',label:'النادي الجديد',def:'نادي الاتحاد'},
+      {k:'contract',label:'مدة العقد',def:'3 سنوات',half:true},
+      {k:'fee',label:'القيمة',def:'100 مليون يورو',half:true},
+      {k:'until',label:'نهاية العقد',def:'يونيو 2029'},
+      {k:'source',label:'المصدر',def:'@Alittihad'},
+    ],
+    content:d=>`
+      <rect x="400" y="162" width="280" height="72" rx="36" fill="${C.navy}"/>
+      <path d="M615 198 l12 12 l22 -26" stroke="${C.yellow}" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="525" y="212" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="${C.yellow}">رسمياً</text>
+      ${arBox(80,270,920,120,esc(d.player),900,70,C.navy)}
+      ${arBox(80,420,920,46,'انتقال إلى',700,32,'#13350c')}
+      <rect x="260" y="478" width="560" height="86" rx="8" fill="${C.yellow}"/>
+      ${arBox(260,478,560,86,esc(d.club),900,46,C.navy)}
+      ${arBox(140,600,800,250,'المدة:  '+esc(d.contract)+'\n'+'القيمة:  '+esc(d.fee)+'\n'+'نهاية العقد:  '+esc(d.until),700,40,'#13350c')}
+      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+  },
+  rumors:{
+    name:'شائعات/تقارير', icon:'📰',
+    fields:[
+      {k:'player',label:'اللاعب',def:'محمد صلاح'},
+      {k:'fromClub',label:'من نادي',def:'ليفربول',half:true},
+      {k:'toClub',label:'إلى نادي',def:'الهلال',half:true},
+      {k:'details',label:'التفاصيل (سطر لكل نقطة)',def:'المفاوضات في مراحلها الأخيرة\nعرض قياسي للاعب\nالنادي ينتظر الرد النهائي',multiline:true},
+      {k:'status',label:'الموقف الحالي',def:'قيد التفاوض'},
+      {k:'source',label:'المصدر',def:'الصحافة الإنجليزية'},
+    ],
+    content:d=>`
+      <rect x="390" y="162" width="300" height="72" rx="36" fill="none" stroke="${C.navy}" stroke-width="4" stroke-dasharray="11 8"/>
+      ${arBox(390,162,300,72,'تقارير وشائعات',900,36,C.navy)}
+      ${arBox(80,270,920,120,esc(d.player),900,66,C.navy)}
+      ${arBox(80,415,920,60,esc(d.fromClub)+'   ←   '+esc(d.toClub),800,40,'#13350c')}
+      <line x1="180" y1="500" x2="900" y2="500" stroke="${C.yellow}" stroke-width="4"/>
+      ${arBox(130,525,820,235,esc(d.details),600,38,'#13350c')}
+      <rect x="300" y="788" width="480" height="72" rx="36" fill="${C.yellow}"/>
+      ${arBox(300,788,480,72,'الموقف: '+esc(d.status),800,34,C.navy)}
+      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+  },
+  statshock:{
+    name:'صدمة الرقم', icon:'🔥',
+    fields:[
+      {k:'number',label:'الرقم اللافت',def:'47'},
+      {k:'context',label:'السياق',def:'هدفاً سجّلها رونالدو في دوري روشن — أكثر من أي لاعب فوق الأربعين في الدوريات الكبرى',multiline:true},
+      {k:'source',label:'المصدر',def:'Opta'},
+    ],
+    content:d=>`
+      <rect x="370" y="160" width="340" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(370,160,340,72,'صدمة الأرقام',900,38,C.yellow)}
+      <text x="540" y="545" text-anchor="middle" font-family="Anton" font-size="300" fill="${C.navy}">${esc(d.number)}</text>
+      <line x1="360" y1="595" x2="720" y2="595" stroke="${C.yellow}" stroke-width="8"/>
+      ${arBox(110,620,860,230,esc(d.context),700,46,'#13350c')}
+      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+  },
+  comparison:{
+    name:'مقارنة لاعبين', icon:'⚔️',
+    fields:[
+      {k:'season',label:'الموسم/البطولة',def:'دوري روشن 2025/26'},
+      {k:'pA',label:'اللاعب (يمين)',def:'رونالدو',half:true},
+      {k:'pB',label:'اللاعب (يسار)',def:'بنزيمة',half:true},
+      {k:'s1',label:'إحصائية 1',def:'الأهداف'},
+      {k:'a1',label:'قيمة يمين 1',def:'24',half:true},
+      {k:'b1',label:'قيمة يسار 1',def:'19',half:true},
+      {k:'s2',label:'إحصائية 2',def:'صناعة الأهداف'},
+      {k:'a2',label:'قيمة يمين 2',def:'8',half:true},
+      {k:'b2',label:'قيمة يسار 2',def:'11',half:true},
+      {k:'s3',label:'إحصائية 3',def:'الدقائق'},
+      {k:'a3',label:'قيمة يمين 3',def:'2340',half:true},
+      {k:'b3',label:'قيمة يسار 3',def:'2010',half:true},
+    ],
+    content:d=>`
+      <rect x="400" y="160" width="280" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(400,160,280,72,'مقارنة',900,40,C.yellow)}
+      ${arBox(80,245,920,40,esc(d.season),700,28,'#13350c')}
+      ${arBox(110,300,360,70,esc(d.pA),900,46,C.navy)}
+      <rect x="505" y="305" width="70" height="58" fill="${C.navy}"/>
+      <text x="540" y="346" text-anchor="middle" font-family="Anton" font-size="32" fill="${C.yellow}">VS</text>
+      ${arBox(610,300,360,70,esc(d.pB),900,46,C.navy)}
+      <line x1="540" y1="400" x2="540" y2="830" stroke="${C.yellow}" stroke-width="3"/>
+      ${arBox(380,410,320,36,esc(d.s1),800,28,'#13350c')}
+      ${arBox(110,446,380,80,esc(d.a1),900,58,C.navy)}
+      ${arBox(590,446,380,80,esc(d.b1),900,58,C.navy)}
+      ${arBox(380,556,320,36,esc(d.s2),800,28,'#13350c')}
+      ${arBox(110,592,380,80,esc(d.a2),900,58,C.navy)}
+      ${arBox(590,592,380,80,esc(d.b2),900,58,C.navy)}
+      ${arBox(380,702,320,36,esc(d.s3),800,28,'#13350c')}
+      ${arBox(110,738,380,80,esc(d.a3),900,58,C.navy)}
+      ${arBox(590,738,380,80,esc(d.b3),900,58,C.navy)}
+      ${arBox(80,852,920,46,'من الأفضل برأيك؟',800,32,C.navy)}`
+  },
+  top10:{
+    name:'أفضل 10', icon:'🏆',
+    fields:[
+      {k:'topic',label:'الموضوع',def:'هدّافو دوري روشن 2025/26'},
+      {k:'list',label:'القائمة (الاسم | الرقم — سطر لكل لاعب)',def:'رونالدو | 24\nبنزيمة | 19\nميتروفيتش | 17\nسالم الدوسري | 14\nمالكوم | 12\nفيرمينو | 11\nعبدالله الحمدان | 9\nفراس البريكان | 8\nعبدالرزاق حمدالله | 7\nحاتم باحبري | 6',multiline:true},
+    ],
+    content:d=>{
+      const rows=String(d.list||'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,10);
+      const top=300, gap=Math.min(60,(880-top)/Math.max(rows.length,1));
+      let body='';
+      rows.forEach((r,i)=>{
+        const parts=r.split('|'); const name=esc((parts[0]||'').trim()); const val=esc((parts[1]||'').trim());
+        const y=top+i*gap;
+        body+=`<foreignObject x="130" y="${y.toFixed(0)}" width="820" height="${(gap-6).toFixed(0)}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;justify-content:space-between;height:100%;font-family:Cairo,sans-serif"><div style="display:flex;align-items:center;gap:18px"><span style="font-family:Anton;font-size:38px;color:${C.yellow}">${i+1}</span><span style="font-weight:800;font-size:34px;color:${C.navy}">${name}</span></div><span style="font-family:Anton;font-size:38px;color:${C.navy}">${val}</span></div></foreignObject>`;
+        if(i<rows.length-1) body+=`<line x1="150" y1="${(y+gap-3).toFixed(0)}" x2="930" y2="${(y+gap-3).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.5" opacity="0.5"/>`;
+      });
+      return `
+      <rect x="390" y="150" width="300" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(390,150,300,72,'أفضل 10',900,40,C.yellow)}
+      ${arBox(80,232,920,46,esc(d.topic),700,30,'#13350c')}
+      ${body}`;
+    }
+  },
+  seasons:{
+    name:'مقارنة المواسم', icon:'🔄',
+    fields:[
+      {k:'subject',label:'اللاعب/الفريق',def:'محمد صلاح'},
+      {k:'seasonA',label:'الموسم (يمين)',def:'موسم 2017/18',half:true},
+      {k:'seasonB',label:'الموسم (يسار)',def:'موسم 2024/25',half:true},
+      {k:'s1',label:'إحصائية 1',def:'الأهداف'},
+      {k:'a1',label:'يمين 1',def:'32',half:true},
+      {k:'b1',label:'يسار 1',def:'18',half:true},
+      {k:'s2',label:'إحصائية 2',def:'صناعة الأهداف'},
+      {k:'a2',label:'يمين 2',def:'10',half:true},
+      {k:'b2',label:'يسار 2',def:'14',half:true},
+      {k:'s3',label:'إحصائية 3',def:'المباريات'},
+      {k:'a3',label:'يمين 3',def:'36',half:true},
+      {k:'b3',label:'يسار 3',def:'30',half:true},
+      {k:'note',label:'ملاحظة سفلية',def:'أرقام الذروة مقابل النضج'},
+    ],
+    content:d=>`
+      <rect x="350" y="160" width="380" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(350,160,380,72,'مقارنة المواسم',900,36,C.yellow)}
+      ${arBox(80,250,920,70,esc(d.subject),900,54,C.navy)}
+      ${arBox(110,345,380,50,esc(d.seasonA),800,32,'#13350c')}
+      <text x="540" y="382" text-anchor="middle" font-family="Anton" font-size="30" fill="${C.yellow}">VS</text>
+      ${arBox(590,345,380,50,esc(d.seasonB),800,32,'#13350c')}
+      <line x1="540" y1="410" x2="540" y2="835" stroke="${C.yellow}" stroke-width="3"/>
+      ${arBox(380,420,320,34,esc(d.s1),800,27,'#13350c')}
+      ${arBox(110,454,380,76,esc(d.a1),900,56,C.navy)}
+      ${arBox(590,454,380,76,esc(d.b1),900,56,C.navy)}
+      ${arBox(380,560,320,34,esc(d.s2),800,27,'#13350c')}
+      ${arBox(110,594,380,76,esc(d.a2),900,56,C.navy)}
+      ${arBox(590,594,380,76,esc(d.b2),900,56,C.navy)}
+      ${arBox(380,700,320,34,esc(d.s3),800,27,'#13350c')}
+      ${arBox(110,734,380,76,esc(d.a3),900,56,C.navy)}
+      ${arBox(590,734,380,76,esc(d.b3),900,56,C.navy)}
+      ${arBox(80,850,920,46,esc(d.note),800,30,C.navy)}`
+  },
+  milestone:{
+    name:'رقم قياسي', icon:'🏅',
+    fields:[
+      {k:'player',label:'اللاعب',def:'كريستيانو رونالدو'},
+      {k:'number',label:'الرقم القياسي',def:'900'},
+      {k:'unit',label:'الوحدة',def:'هدف في مسيرته'},
+      {k:'desc',label:'الوصف',def:'أول لاعب في التاريخ يصل إلى 900 هدف رسمي مع الأندية والمنتخب',multiline:true},
+      {k:'source',label:'المصدر',def:'Opta'},
+    ],
+    content:d=>`
+      <rect x="370" y="160" width="340" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(370,160,340,72,'رقم قياسي',900,40,C.yellow)}
+      ${arBox(80,245,920,70,esc(d.player),900,56,C.navy)}
+      <text x="540" y="555" text-anchor="middle" font-family="Anton" font-size="240" fill="${C.navy}">${esc(d.number)}</text>
+      ${arBox(80,565,920,48,esc(d.unit),800,38,'#13350c')}
+      <line x1="360" y1="635" x2="720" y2="635" stroke="${C.yellow}" stroke-width="6"/>
+      ${arBox(110,660,860,190,esc(d.desc),700,42,'#13350c')}
+      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+  },
+  prematch:{
+    name:'قبل المباراة', icon:'⚽',
+    fields:[
+      {k:'comp',label:'البطولة',def:'دوري أبطال آسيا'},
+      {k:'round',label:'الجولة/الدور',def:'دور الـ 16 — ذهاب'},
+      {k:'home',label:'الفريق المضيف',def:'الهلال',half:true},
+      {k:'away',label:'الفريق الضيف',def:'النصر',half:true},
+      {k:'homeLogo',label:'رابط شعار المضيف',def:'',half:true},
+      {k:'awayLogo',label:'رابط شعار الضيف',def:'',half:true},
+      {k:'date',label:'التاريخ',def:'الثلاثاء 12 أغسطس'},
+      {k:'time',label:'الوقت',def:'9:00 مساءً'},
+      {k:'stadium',label:'الملعب',def:'المملكة أرينا'},
+    ],
+    content:d=>`
+      ${blockTitle('MATCH','DAY')}
+      <text x="540" y="376" text-anchor="middle" font-family="Anton" font-size="62" fill="${C.navy}">${esc(d.comp)}</text>
+      ${arBox(80,392,920,40,esc(d.round),800,30,'#13350c')}
+      ${crest(245,560,d.homeLogo)}
+      ${crest(865,560,d.awayLogo)}
+      <rect x="360" y="478" width="360" height="170" rx="8" fill="${C.yellow}"/>
+      <text x="540" y="612" text-anchor="middle" font-family="Anton" font-size="140" fill="${C.navy}">VS</text>
+      <rect x="200" y="690" width="680" height="74" rx="6" fill="${C.yellow}"/>
+      ${arBox(210,690,300,74,esc(d.home),900,40,C.navy)}
+      <rect x="505" y="698" width="70" height="58" fill="${C.navy}"/>
+      <text x="540" y="739" text-anchor="middle" font-family="Anton" font-size="32" fill="${C.yellow}">VS</text>
+      ${arBox(570,690,300,74,esc(d.away),900,40,C.navy)}
+      <text x="540" y="838" text-anchor="middle" font-family="Anton" font-size="56" fill="${C.navy}">${esc(d.date)}</text>
+      ${arBox(80,852,920,44,esc(d.time)+'   ·   '+esc(d.stadium),700,32,'#13350c')}
+      ${arBox(80,902,920,40,'من سيفوز؟ شاركنا توقّعك',800,28,C.navy)}`
+  },
+  result:{
+    name:'نتيجة المباراة', icon:'🏁',
+    fields:[
+      {k:'comp',label:'البطولة',def:'دوري روشن السعودي'},
+      {k:'round',label:'الجولة/الدور',def:'الجولة 24'},
+      {k:'home',label:'الفريق المضيف',def:'الهلال',half:true},
+      {k:'away',label:'الفريق الضيف',def:'النصر',half:true},
+      {k:'homeLogo',label:'رابط شعار المضيف',def:'',half:true},
+      {k:'awayLogo',label:'رابط شعار الضيف',def:'',half:true},
+      {k:'hs',label:'هدف المضيف',def:'3',half:true},
+      {k:'as',label:'هدف الضيف',def:'1',half:true},
+      {k:'homeEvents',label:'أحداث المضيف (هدف/بطاقة — سطر لكل حدث)',def:'ميتروفيتش 23\nمالكوم 56\nسالم الدوسري 78',multiline:true},
+      {k:'awayEvents',label:'أحداث الضيف (هدف/بطاقة — سطر لكل حدث)',def:'رونالدو 90+2\nبطاقة حمراء: تيليس 70',multiline:true},
+    ],
+    content:d=>{
+      const hE=String(d.homeEvents||'').split('\n').map(s=>s.trim()).filter(Boolean);
+      const aE=String(d.awayEvents||'').split('\n').map(s=>s.trim()).filter(Boolean);
+      const n=Math.max(hE.length,aE.length,1);
+      let fs=Math.floor(150/(n*1.45)); fs=Math.max(14,Math.min(28,fs));
+      const col=(x,name,arr)=>`<foreignObject x="${x}" y="780" width="420" height="194"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="font-family:Cairo,sans-serif;text-align:center"><div style="font-weight:900;font-size:28px;color:${C.navy};border-bottom:3px solid ${C.yellow};padding-bottom:5px;margin-bottom:7px">${esc(name)}</div><div style="font-weight:600;font-size:${fs}px;color:#13350c;line-height:1.45;white-space:pre-line">${esc(arr.join('\n'))}</div></div></foreignObject>`;
+      return `
+      ${blockTitle('FULL','TIME')}
+      <text x="540" y="376" text-anchor="middle" font-family="Anton" font-size="62" fill="${C.navy}">${esc(d.comp)}</text>
+      ${arBox(80,392,920,40,esc(d.round),800,30,'#13350c')}
+      ${crest(245,560,d.homeLogo)}
+      ${crest(865,560,d.awayLogo)}
+      <rect x="360" y="478" width="360" height="170" rx="8" fill="${C.yellow}"/>
+      <rect x="535" y="493" width="10" height="140" fill="${C.navy}"/>
+      <text x="455" y="612" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.navy}">${esc(d.hs)}</text>
+      <text x="625" y="612" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.navy}">${esc(d.as)}</text>
+      <rect x="200" y="690" width="680" height="74" rx="6" fill="${C.yellow}"/>
+      ${arBox(210,690,300,74,esc(d.home),900,40,C.navy)}
+      <rect x="505" y="698" width="70" height="58" fill="${C.navy}"/>
+      <text x="540" y="737" text-anchor="middle" font-family="Anton" font-size="30" fill="${C.yellow}">FT</text>
+      ${arBox(570,690,300,74,esc(d.away),900,40,C.navy)}
+      ${col(80,d.home,hE)}
+      ${col(580,d.away,aE)}`;
+    }
+  },
+  matchstats:{
+    name:'تحليل إحصائي', icon:'📊',
+    fields:[
+      {k:'home',label:'الفريق المضيف',def:'الهلال',half:true},
+      {k:'away',label:'الفريق الضيف',def:'النصر',half:true},
+      {k:'score',label:'النتيجة',def:'3 - 1'},
+      {k:'stats',label:'الإحصائيات (اسم | مضيف | ضيف — سطر لكل بند)',def:'الاستحواذ % | 58 | 42\nالتسديدات | 14 | 9\nعلى المرمى | 6 | 3\nالركنيات | 7 | 4\nالأخطاء | 11 | 14\nxG | 2.3 | 1.1',multiline:true},
+    ],
+    content:d=>{
+      const rows=String(d.stats||'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,7);
+      const startY=372, rowH=Math.min(104,(930-startY)/Math.max(rows.length,1));
+      let body='';
+      rows.forEach((r,i)=>{
+        const p=r.split('|'); const label=esc((p[0]||'').trim()); const hv=(p[1]||'').trim(); const av=(p[2]||'').trim();
+        const hN=parseFloat(hv.replace(/[^0-9.]/g,''))||0, aN=parseFloat(av.replace(/[^0-9.]/g,''))||0, tot=(hN+aN)||1;
+        const barX=140, barW=800, hW=Math.max(4,Math.round(barW*hN/tot));
+        const y=startY+i*rowH;
+        body+=`<text x="150" y="${y.toFixed(0)}" font-family="Cairo" font-weight="800" font-size="34" fill="${C.navy}">${esc(hv)}</text>`;
+        body+=`<text x="930" y="${y.toFixed(0)}" text-anchor="end" font-family="Cairo" font-weight="800" font-size="34" fill="${C.navy}">${esc(av)}</text>`;
+        body+=arBox(390,(y-34).toFixed(0),300,40,label,800,26,'#13350c');
+        const by=(y+16).toFixed(0);
+        body+=`<rect x="${barX}" y="${by}" width="${barW}" height="16" rx="8" fill="#e6ece4"/>`;
+        body+=`<rect x="${barX}" y="${by}" width="${hW}" height="16" rx="8" fill="${C.navy}"/>`;
+        body+=`<rect x="${barX+hW}" y="${by}" width="${barW-hW}" height="16" rx="8" fill="${C.yellow}"/>`;
+      });
+      return `
+      <rect x="350" y="158" width="380" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(350,158,380,72,'إحصائيات المباراة',900,34,C.yellow)}
+      ${arBox(80,250,360,60,esc(d.home),900,40,C.navy)}
+      ${arBox(440,250,200,60,esc(d.score),900,46,C.navy)}
+      ${arBox(640,250,360,60,esc(d.away),900,40,C.navy)}
+      ${body}
+      <rect x="335" y="905" width="22" height="22" fill="${C.navy}"/>${arBox(360,899,150,34,esc(d.home),700,24,C.navy)}
+      <rect x="560" y="905" width="22" height="22" fill="${C.yellow}"/>${arBox(585,899,150,34,esc(d.away),700,24,C.navy)}`;
+    }
+  },
+  ratings:{
+    name:'تقييمات اللاعبين', icon:'⭐',
+    fields:[
+      {k:'team',label:'الفريق/المباراة',def:'الهلال أمام النصر — تقييمات الأداء'},
+      {k:'list',label:'القائمة (الاسم | التقييم — سطر لكل لاعب)',def:'بونو | 7.2\nكوليبالي | 7.8\nسالم الدوسري | 8.7\nميتروفيتش | 8.1\nمالكوم | 7.6\nنيفيز | 7.0\nرومارينهو | 6.4\nالبليهي | 6.8',multiline:true},
+    ],
+    content:d=>{
+      const rows=String(d.list||'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,11);
+      const top=320, gap=Math.min(56,(905-top)/Math.max(rows.length,1));
+      let body='';
+      rows.forEach((r,i)=>{
+        const p=r.split('|'); const name=esc((p[0]||'').trim()); const rt=(p[1]||'').trim(); const rv=parseFloat(rt)||0;
+        const bg = rv>=7.5?C.navy : rv>=6.5?C.yellow : '#E63946';
+        const fg = (rv>=6.5&&rv<7.5)?C.navy:'#fff';
+        const y=top+i*gap;
+        body+=`<foreignObject x="130" y="${y.toFixed(0)}" width="820" height="${(gap-6).toFixed(0)}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;justify-content:space-between;height:100%;font-family:Cairo,sans-serif"><span style="font-weight:800;font-size:32px;color:${C.navy}">${name}</span><span style="font-family:Anton;font-size:30px;background:${bg};color:${fg};padding:4px 18px;border-radius:8px">${esc(rt)}</span></div></foreignObject>`;
+        if(i<rows.length-1) body+=`<line x1="150" y1="${(y+gap-3).toFixed(0)}" x2="930" y2="${(y+gap-3).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.5" opacity="0.5"/>`;
+      });
+      return `
+      <rect x="360" y="150" width="360" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(360,150,360,72,'تقييمات اللاعبين',900,34,C.yellow)}
+      ${arBox(80,232,920,46,esc(d.team),700,30,'#13350c')}
+      ${body}`;
+    }
+  },
+  quote:{
+    name:'تصريح', icon:'💬',
+    fields:[
+      {k:'quote',label:'نص التصريح',def:'إذا فاز منتخب سعودي بكأس العالم سأبكي أكثر من فرحتي بلقب الأرجنتين 2022',multiline:true},
+      {k:'author',label:'القائل',def:'ليونيل ميسي'},
+      {k:'role',label:'المنصب',def:'نجم منتخب الأرجنتين'},
+    ],
+    content:d=>`
+      <rect x="400" y="160" width="280" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(400,160,280,72,'تصريح',900,40,C.yellow)}
+      <text x="540" y="332" text-anchor="middle" font-family="Anton" font-size="130" fill="${C.yellow}">&#8221;</text>
+      ${arBox(110,350,860,320,esc(d.quote),800,54,C.navy)}
+      <line x1="300" y1="708" x2="780" y2="708" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBox(80,726,920,70,'— '+esc(d.author),900,52,C.navy)}
+      ${arBox(80,802,920,50,esc(d.role),700,34,'#13350c')}`
+  },
+  didyouknow:{
+    name:'هل تعلم؟', icon:'🤔',
+    fields:[
+      {k:'fact',label:'المعلومة',def:'محمد صلاح أول لاعب يسجّل في 9 افتتاحيات متتالية للدوري الإنجليزي الممتاز',multiline:true},
+      {k:'extra',label:'سياق/تاريخ',def:'من موسم 2017/18 حتى 2025/26'},
+    ],
+    content:d=>`
+      <rect x="370" y="160" width="340" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(370,160,340,72,'هل تعلم؟',900,40,C.yellow)}
+      <text x="540" y="330" text-anchor="middle" font-family="Anton" font-size="110" fill="${C.yellow}">?</text>
+      ${arBox(110,360,860,330,esc(d.fact),800,54,C.navy)}
+      <line x1="300" y1="730" x2="780" y2="730" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBox(80,750,920,54,esc(d.extra),700,36,'#13350c')}`
+  },
+  onthisday:{
+    name:'في مثل هذا اليوم', icon:'📅',
+    fields:[
+      {k:'year',label:'السنة',def:'1986'},
+      {k:'date',label:'اليوم/المكان',def:'22 يونيو — ملعب أزتيكا'},
+      {k:'title',label:'الحدث',def:'مارادونا يسجّل «هدف القرن» ضد إنجلترا',multiline:true},
+      {k:'desc',label:'الوصف',def:'مرّ على 5 لاعبين في 10 ثوانٍ ليصنع أعظم هدف فردي في تاريخ كأس العالم',multiline:true},
+    ],
+    content:d=>`
+      <rect x="330" y="160" width="420" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(330,160,420,72,'في مثل هذا اليوم',900,34,C.yellow)}
+      <text x="540" y="372" text-anchor="middle" font-family="Anton" font-size="130" fill="${C.navy}">${esc(d.year)}</text>
+      ${arBox(80,388,920,46,esc(d.date),800,32,'#13350c')}
+      ${arBox(110,468,860,200,esc(d.title),900,54,C.navy)}
+      <line x1="300" y1="700" x2="780" y2="700" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBox(110,720,860,200,esc(d.desc),600,38,'#13350c')}`
+  },
+  spl:{
+    name:'دوري روشن', icon:'🇸🇦',
+    fields:[
+      {k:'subject',label:'اللاعب/النادي',def:'كريستيانو رونالدو'},
+      {k:'number',label:'الرقم',def:'35'},
+      {k:'unit',label:'الوحدة',def:'هدفاً في موسم واحد بدوري روشن'},
+      {k:'context',label:'السياق',def:'الرقم القياسي لأكثر الأهداف في موسم واحد بتاريخ الدوري السعودي للمحترفين',multiline:true},
+      {k:'source',label:'المصدر',def:'رابطة دوري المحترفين'},
+    ],
+    content:d=>`
+      <rect x="350" y="160" width="380" height="72" rx="36" fill="#006C35"/>
+      ${arBox(350,160,380,72,'من دوري روشن',900,36,'#FFFFFF')}
+      ${arBox(80,250,920,70,esc(d.subject),900,54,C.navy)}
+      <text x="540" y="562" text-anchor="middle" font-family="Anton" font-size="260" fill="${C.navy}">${esc(d.number)}</text>
+      ${arBox(80,576,920,48,esc(d.unit),800,38,'#006C35')}
+      <line x1="360" y1="648" x2="720" y2="648" stroke="${C.yellow}" stroke-width="6"/>
+      ${arBox(110,672,860,180,esc(d.context),700,42,'#13350c')}
+      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+  },
+  tactical:{
+    name:'تحليل تكتيكي', icon:'📋',
+    fields:[
+      {k:'subject',label:'العنوان',def:'كيف فرض الهلال أفضليته'},
+      {k:'formation',label:'الخطة (مثال 4-3-3)',def:'4-3-3'},
+      {k:'points',label:'النقاط التكتيكية (سطر لكل نقطة)',def:'ضغط عالٍ على حامل الكرة\nتبديل الأطراف لاستغلال المساحات\nسيطرة وسط الميدان بثلاثي متحرّك',multiline:true},
+    ],
+    content:d=>{
+      const lines=String(d.formation||'4-3-3').split('-').map(s=>parseInt(s)).filter(n=>n>0);
+      const rows=[1].concat(lines); const nR=rows.length;
+      const yTop=350,yBot=660,gap=nR>1?(yBot-yTop)/(nR-1):0;
+      let dots='';
+      rows.forEach((k,ri)=>{ const y=yBot-ri*gap; const xL=370,xR=710;
+        for(let j=0;j<k;j++){ const x=k===1?540:xL+(xR-xL)*(j/(k-1)); dots+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="17" fill="${C.yellow}" stroke="${C.navy}" stroke-width="3"/>`; }
+      });
+      return `
+      <rect x="350" y="160" width="380" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(350,160,380,72,'تحليل تكتيكي',900,36,C.yellow)}
+      ${arBox(80,242,920,52,esc(d.subject),900,42,C.navy)}
+      <rect x="300" y="300" width="480" height="400" rx="6" fill="none" stroke="${C.navy}" stroke-width="3"/>
+      <line x1="300" y1="500" x2="780" y2="500" stroke="${C.navy}" stroke-width="3"/>
+      <circle cx="540" cy="500" r="46" fill="none" stroke="${C.navy}" stroke-width="3"/>
+      <rect x="450" y="300" width="180" height="58" fill="none" stroke="${C.navy}" stroke-width="3"/>
+      <rect x="450" y="642" width="180" height="58" fill="none" stroke="${C.navy}" stroke-width="3"/>
+      ${dots}
+      <rect x="460" y="714" width="160" height="46" rx="23" fill="${C.navy}"/>
+      ${arBox(460,714,160,46,esc(d.formation),900,34,C.yellow)}
+      ${arBox(110,772,860,160,esc(d.points),700,36,'#13350c')}`;
+    }
+  },
+  polls:{
+    name:'تصويت', icon:'🗳️',
+    fields:[
+      {k:'question',label:'السؤال',def:'من الأفضل في دوري روشن هذا الموسم؟',multiline:true},
+      {k:'options',label:'الخيارات (نص | نسبة% — سطر لكل خيار)',def:'رونالدو | 46\nبنزيمة | 32\nميتروفيتش | 14\nسالم الدوسري | 8',multiline:true},
+      {k:'cta',label:'دعوة للتفاعل',def:'شاركنا رأيك في التعليقات'},
+    ],
+    content:d=>{
+      const opts=String(d.options||'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4);
+      const top=470, gap=Math.min(88,(840-top)/Math.max(opts.length,1)), barH=Math.min(64,gap-16);
+      let body='';
+      opts.forEach((o,i)=>{
+        const p=o.split('|'); const txt=esc((p[0]||'').trim()); const pc=(p[1]||'').trim(); const pn=parseFloat(pc)||0;
+        const y=top+i*gap;
+        body+=`<rect x="140" y="${y.toFixed(0)}" width="800" height="${barH}" rx="12" fill="#eef3ec"/>`;
+        if(pn>0) body+=`<rect x="140" y="${y.toFixed(0)}" width="${(800*pn/100).toFixed(0)}" height="${barH}" rx="12" fill="${C.yellow}"/>`;
+        body+=`<foreignObject x="140" y="${y.toFixed(0)}" width="800" height="${barH}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 26px;font-family:Cairo,sans-serif"><span style="font-weight:800;font-size:34px;color:${C.navy}">${txt}</span><span style="font-family:Anton;font-size:32px;color:${C.navy}">${pc?esc(pc)+'%':''}</span></div></foreignObject>`;
+      });
+      return `
+      <rect x="400" y="160" width="280" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(400,160,280,72,'صوّتوا الآن',900,38,C.yellow)}
+      ${arBox(80,262,920,180,esc(d.question),900,52,C.navy)}
+      ${body}
+      ${arBox(80,868,920,50,esc(d.cta),800,34,C.navy)}`;
+    }
+  },
+  quiz:{
+    name:'خمّن اللاعب', icon:'❓',
+    fields:[
+      {k:'clues',label:'التلميحات (سطر لكل تلميح)',def:'برتغالي الجنسية\n5 كرات ذهبية\nلعب في 4 دوريات مختلفة\nأكثر من 900 هدف رسمي',multiline:true},
+      {k:'cta',label:'دعوة للتفاعل',def:'من هو؟ اكتب إجابتك في التعليقات'},
+    ],
+    content:d=>`
+      <rect x="370" y="160" width="340" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(370,160,340,72,'خمّن اللاعب',900,38,C.yellow)}
+      <circle cx="540" cy="360" r="92" fill="${C.navy}"/>
+      <text x="540" y="410" text-anchor="middle" font-family="Anton" font-size="120" fill="${C.yellow}">?</text>
+      ${arBox(110,495,860,310,esc(d.clues),700,44,C.navy)}
+      <line x1="300" y1="832" x2="780" y2="832" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBox(80,850,920,54,esc(d.cta),800,34,C.navy)}`
+  },
+  brand:{
+    name:'صوت العلامة', icon:'📣',
+    fields:[
+      {k:'statement',label:'العبارة',def:'نحلّل كرة القدم بالأرقام، لا بالضجيج. هنا تجد الحقيقة خلف كل مباراة',multiline:true},
+      {k:'tagline',label:'الوسم',def:'الكرة بالأرقام'},
+    ],
+    content:d=>`
+      <text x="540" y="288" text-anchor="middle" font-family="Anton" font-size="118" fill="${C.navy}">GOLAZO</text>
+      <rect x="385" y="308" width="310" height="12" fill="${C.yellow}"/>
+      ${arBox(110,360,860,360,esc(d.statement),800,58,C.navy)}
+      <line x1="300" y1="758" x2="780" y2="758" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBox(80,778,920,56,esc(d.tagline),900,42,C.navy)}`
+  },
+  carousel:{
+    name:'كاروسيل', icon:'🎞️',
+    fields:[
+      {k:'slides',label:'الشرائح (افصل بينها بسطر ---  ؛ أول سطر = العنوان)',def:'ملخص اليوم\nالجمعة 12 أغسطس\n3 مباريات • نتائج وأبرز اللحظات\n---\nنتيجة القمة\nالهلال 3 - 1 النصر\nميتروفيتش (هدفان) + سالم الدوسري\n---\nلاعب اليوم\nسالم الدوسري — تقييم 8.7\nهدف + صناعة + 4 مراوغات ناجحة\n---\nرقم اليوم\n47 هدفاً\nرصيد رونالدو هذا الموسم في كل البطولات\n---\nتابِع Golazo\nالكرة بالأرقام\n@golazo.arabic',multiline:true},
+    ],
+    content:d=>{
+      const slides=parseSlides(d.slides); const n=Math.max(slides.length,1);
+      slideIdx=Math.min(Math.max(slideIdx,0),n-1);
+      const s=slides[slideIdx]||{title:'',body:''};
+      const last=slideIdx===n-1;
+      return `
+      <rect x="430" y="118" width="220" height="52" rx="26" fill="${C.navy}"/>
+      ${arBox(430,118,220,52,(slideIdx+1)+' / '+n,900,28,C.yellow)}
+      ${arBox(90,250,900,200,esc(s.title),900,66,C.navy)}
+      <line x1="300" y1="478" x2="780" y2="478" stroke="${C.yellow}" stroke-width="5"/>
+      ${arBox(110,505,860,340,esc(s.body),700,46,'#13350c')}
+      ${arBox(80,888,920,46, last?'تابِع @golazo.arabic':'اسحب للمزيد ←',800,32,C.navy)}`;
+    }
+  },
+  fixtures:{
+    name:'مباريات اليوم', icon:'🗓️',
+    fields:[
+      {k:'date',label:'التاريخ',def:'الجمعة 12 أغسطس 2026'},
+      {k:'list',label:'المباريات (مضيف | ضيف | الدوري | الوقت — سطر لكل مباراة)',def:'الهلال | النصر | روشن | 9:00 م\nريال مدريد | برشلونة | الليغا | 11:00 م\nمان سيتي | ليفربول | البريميرليغ | 6:30 م\nبايرن | دورتموند | البوندسليغا | 8:30 م\nيوفنتوس | إنتر | السيري آ | 10:45 م\nالاتحاد | الأهلي | روشن | 7:00 م\nسان جيرمان | مارسيليا | الليغ 1 | 10:00 م',multiline:true},
+    ],
+    content:d=>{
+      const rows=String(d.list||'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,14);
+      const top=320, bottom=930, gap=Math.min(60,(bottom-top)/Math.max(rows.length,1));
+      const fs=Math.max(20,Math.min(28,Math.floor(gap*0.5)));
+      let body='';
+      rows.forEach((r,i)=>{
+        const p=r.split('|'); const home=esc((p[0]||'').trim()), away=esc((p[1]||'').trim()), league=esc((p[2]||'').trim()), time=esc((p[3]||'').trim());
+        const y=top+i*gap;
+        body+=`<foreignObject x="70" y="${y.toFixed(0)}" width="940" height="${(gap-4).toFixed(0)}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;height:100%;font-family:Cairo,sans-serif;gap:10px"><div style="width:120px;font-weight:700;font-size:18px;color:#3a5a33;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${league}</div><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:${fs}px;color:${C.navy}">${badge(home)}<span>${home}</span><span style="color:${C.navy};opacity:.4;font-weight:900">×</span><span>${away}</span>${badge(away)}</div><div style="width:120px;text-align:left;font-family:Anton;font-size:${fs+2}px;color:${C.navy}">${time}</div></div></foreignObject>`;
+        if(i<rows.length-1) body+=`<line x1="95" y1="${(y+gap-2).toFixed(0)}" x2="985" y2="${(y+gap-2).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
+      });
+      return `
+      <rect x="370" y="158" width="340" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(370,158,340,72,'مباريات اليوم',900,36,C.yellow)}
+      ${arBox(80,248,920,44,esc(d.date),700,30,'#13350c')}
+      ${body}`;
+    }
+  },
+  results:{
+    name:'ملخص اليوم', icon:'📋',
+    fields:[
+      {k:'date',label:'التاريخ',def:'الجمعة 12 أغسطس 2026'},
+      {k:'list',label:'النتائج (مضيف | ضيف | النتيجة | الدوري/الترتيب — سطر لكل مباراة)',def:'الهلال | النصر | 3 - 1 | روشن — المركز 1\nريال مدريد | برشلونة | 2 - 2 | الليغا\nمان سيتي | ليفربول | 1 - 0 | البريميرليغ\nبايرن | دورتموند | 4 - 0 | البوندسليغا\nيوفنتوس | إنتر | 0 - 0 | السيري آ\nالاتحاد | الأهلي | 2 - 3 | روشن',multiline:true},
+    ],
+    content:d=>{
+      const rows=String(d.list||'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,12);
+      const top=320, bottom=930, gap=Math.min(64,(bottom-top)/Math.max(rows.length,1));
+      const fs=Math.max(20,Math.min(28,Math.floor(gap*0.46)));
+      let body='';
+      rows.forEach((r,i)=>{
+        const p=r.split('|'); const home=esc((p[0]||'').trim()), away=esc((p[1]||'').trim()), score=esc((p[2]||'').trim()), note=esc((p[3]||'').trim());
+        const y=top+i*gap;
+        body+=`<foreignObject x="70" y="${y.toFixed(0)}" width="940" height="${(gap-4).toFixed(0)}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;height:100%;font-family:Cairo,sans-serif;gap:10px"><div style="width:150px;font-weight:700;font-size:17px;color:#3a5a33;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${note}</div><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:${fs}px;color:${C.navy}">${badge(home)}<span>${home}</span><span style="background:${C.yellow};color:${C.navy};font-family:Anton;font-size:${fs}px;padding:2px 12px;border-radius:7px">${score}</span><span>${away}</span>${badge(away)}</div></div></foreignObject>`;
+        if(i<rows.length-1) body+=`<line x1="95" y1="${(y+gap-2).toFixed(0)}" x2="985" y2="${(y+gap-2).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
+      });
+      return `
+      <rect x="330" y="158" width="420" height="72" rx="36" fill="${C.navy}"/>
+      ${arBox(330,158,420,72,'ملخص مباريات اليوم',900,32,C.yellow)}
+      ${arBox(80,248,920,44,esc(d.date),700,30,'#13350c')}
+      ${body}`;
+    }
+  },
+};
+
+let active='breaking'; let data={}; let slideIdx=0;
+function loadDefaults(){ data={}; slideIdx=0; [...SHARED,...TEMPLATES[active].fields].forEach(f=>data[f.k]=f.def); }
+
+function buildSvg(){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <defs><filter id="paper"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.04 0"/></filter></defs>
+  ${frame(data)}
+  ${TEMPLATES[active].content(data)}
+  </svg>`;
+}
+function render(){ document.getElementById('stage').innerHTML=buildSvg(); updateCarouselUI(); }
+
+function updateCarouselUI(){
+  const on = active==='carousel';
+  ['prevSlide','nextSlide','dlAll','slideCounter'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display= on?'':'none';});
+  if(on){ const n=Math.max(parseSlides(data.slides).length,1); slideIdx=Math.min(slideIdx,n-1); const c=document.getElementById('slideCounter'); if(c) c.textContent=(slideIdx+1)+' / '+n; }
+}
+
+function buildTpls(){
+  const host=document.getElementById('tpls'); host.innerHTML='';
+  Object.entries(TEMPLATES).forEach(([k,t])=>{
+    const b=document.createElement('div'); b.className='tpl'+(k===active?' active':'');
+    b.innerHTML=`<span class="ic">${t.icon}</span>${t.name}`;
+    b.onclick=()=>{active=k;loadDefaults();buildTpls();buildFields();render();};
+    host.appendChild(b);
+  });
+}
+function buildFields(){
+  const fh=document.getElementById('fields'); fh.innerHTML='';
+  [...SHARED,...TEMPLATES[active].fields].forEach(f=>{
+    const wrap=document.createElement('div'); wrap.className='field';
+    const lab=document.createElement('label'); lab.textContent=f.label; wrap.appendChild(lab);
+    const el=f.multiline?document.createElement('textarea'):document.createElement('input');
+    if(!f.multiline) el.type='text';
+    el.value=data[f.k]??''; el.oninput=()=>{data[f.k]=el.value;render();};
+    wrap.appendChild(el); fh.appendChild(wrap);
+  });
+}
+
+/* export */
+let fontCss='';
+(async()=>{try{
+  const url='https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@700;800;900&family=Cairo:wght@600;700;800;900&display=swap';
+  let css=await(await fetch(url,{headers:{accept:'text/css'}})).text();
+  const urls=[...css.matchAll(/url\((https:\/\/[^)]+\.woff2)\)/g)].map(m=>m[1]);
+  for(const u of urls){try{const buf=await(await fetch(u)).arrayBuffer();let bin='';const b=new Uint8Array(buf);for(let i=0;i<b.length;i++)bin+=String.fromCharCode(b[i]);css=css.replace(u,`data:font/woff2;base64,${btoa(bin)}`);}catch(e){}}
+  fontCss=css;
+}catch(e){}})();
+function svgWithFonts(){return buildSvg().replace(/<svg([^>]*)>/,`<svg$1><defs><style type="text/css"><![CDATA[${fontCss}]]></style></defs>`);}
+function download(n,b){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+document.getElementById('dlSvg').onclick=()=>download('golazo_'+active+'.svg',new Blob([svgWithFonts()],{type:'image/svg+xml'}));
+document.getElementById('copySvg').onclick=async()=>{try{await navigator.clipboard.writeText(svgWithFonts());event.target.textContent='✓ تم';setTimeout(()=>event.target.textContent='📋 نسخ الكود',1200);}catch(e){alert('انسخ يدوياً');}};
+document.getElementById('dlPng').onclick=()=>{const svg=svgWithFonts(),blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const cv=document.createElement('canvas');cv.width=W*2;cv.height=H*2;const ctx=cv.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0,W,H);cv.toBlob(b=>{download('golazo_'+active+'.png',b);URL.revokeObjectURL(url);},'image/png');};img.onerror=()=>{alert('تعذّر PNG — استخدم SVG');URL.revokeObjectURL(url);};img.src=url;};
+
+document.getElementById('prevSlide').onclick=()=>{ slideIdx=Math.max(0,slideIdx-1); render(); };
+document.getElementById('nextSlide').onclick=()=>{ const n=Math.max(parseSlides(data.slides).length,1); slideIdx=Math.min(n-1,slideIdx+1); render(); };
+document.getElementById('dlAll').onclick=async()=>{
+  const n=Math.max(parseSlides(data.slides).length,1), old=slideIdx;
+  for(let i=0;i<n;i++){ slideIdx=i; try{ const png=await svgToPng(svgWithFonts()); download('golazo_carousel_'+(i+1)+'.png',png);}catch(e){} await new Promise(r=>setTimeout(r,300)); }
+  slideIdx=old; render();
+};
+
+loadDefaults(); buildTpls(); buildFields();
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(render);}
+render();
+</script>
+</body>
+</html>
