@@ -62,10 +62,20 @@
     </main>
   </div>
 
+<script src="golazo-logo.js"></script>
 <script>
 const C={navy:'#0D3D07', yellow:'#7DDB5B', red:'#E63946', paper:'#FFFFFF'};
 const W=1080,H=1080;
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ===== flexible text sizing (matches the service) =====
+ * Estimate glyph advance, count wrapped lines, and shrink font-size until the
+ * block fits its box height. Tags are stripped for measurement so HTML content
+ * (badges/spans) is measured by its visible text. Short text never shrinks. */
+function charW(ch,size){ if(ch===' ')return size*0.26; if(/[0-9.,:%\-]/.test(ch))return size*0.50; if(/[A-Za-z]/.test(ch))return size*0.52; return size*0.50; }
+function strW(s,size){ let w=0; for(const ch of String(s)) w+=charW(ch,size); return w; }
+function wrapCount(text,maxW,size){ const paras=String(text).split('\n'); let n=0; for(const para of paras){ const words=para.trim().split(/\s+/).filter(Boolean); if(!words.length){n++;continue;} let line=''; for(const word of words){ const trial=line?line+' '+word:word; if(strW(trial,size)<=maxW||!line) line=trial; else { n++; line=word; } } if(line) n++; } return n||1; }
+function fitFont(html,w,h,size,lh){ const text=String(html).replace(/<[^>]*>/g,' '); let s=size; const min=16; while(s>min){ if(wrapCount(text,w-8,s)*lh*s<=h) break; s--; } return s; }
 
 /* ===== shared seeded texture ===== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
@@ -94,6 +104,7 @@ function diagBars(tx,ty,rot,bars){let s=`<g transform="translate(${tx},${ty}) ro
 /* ===== shared frame (decorative + top + footer) ===== */
 function topSlot(d){
   if(d.tlogo && d.tlogo.trim()) return `<image href="${esc(d.tlogo)}" x="492" y="26" width="96" height="96" preserveAspectRatio="xMidYMid meet"/>`;
+  if(window.GOLAZO_LOGO) return `<image href="${window.GOLAZO_LOGO}" x="405" y="24" width="270" height="90" preserveAspectRatio="xMidYMid meet"/>`;
   return `<g transform="translate(540,70)">
     <circle cx="-92" cy="0" r="16" fill="none" stroke="${C.navy}" stroke-width="3"/><line x1="-110" y1="0" x2="-74" y2="0" stroke="${C.navy}" stroke-width="3"/>
     <text x="-58" y="13" font-family="Anton" font-size="40" fill="${C.navy}">GOLAZO</text>
@@ -120,10 +131,12 @@ function frame(d){
 
 /* ===== reusable arabic text block ===== */
 function arBlock(x,y,w,h,html,weight,size,color,align){
-  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="font-family:Cairo,sans-serif;font-weight:${weight};color:${color};font-size:${size}px;line-height:1.4;text-align:${align||'center'};white-space:pre-line">${html}</div></foreignObject>`;
+  const fz=fitFont(html,w,h,size,1.4);
+  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="font-family:Cairo,sans-serif;font-weight:${weight};color:${color};font-size:${fz}px;line-height:1.4;text-align:${align||'center'};white-space:pre-line">${html}</div></foreignObject>`;
 }
 function arBox(x,y,w,h,html,weight,size,color){
-  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;justify-content:center;height:100%;font-family:Cairo,sans-serif;font-weight:${weight};color:${color};font-size:${size}px;line-height:1.35;text-align:center;white-space:pre-line">${html}</div></foreignObject>`;
+  const fz=fitFont(html,w,h,size,1.35);
+  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="display:flex;align-items:center;justify-content:center;height:100%;font-family:Cairo,sans-serif;font-weight:${weight};color:${color};font-size:${fz}px;line-height:1.35;text-align:center;white-space:pre-line">${html}</div></foreignObject>`;
 }
 function formDots(cx,y,str){
   const map={'ف':'#2f9e44','w':'#2f9e44','W':'#2f9e44','ت':'#9aa7b8','d':'#9aa7b8','D':'#9aa7b8','خ':'#E63946','l':'#E63946','L':'#E63946'};
