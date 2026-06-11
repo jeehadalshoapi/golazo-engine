@@ -18,6 +18,9 @@ const C = { navy: '#0D3D07', yellow: '#7DDB5B', red: '#E63946', paper: '#FFFFFF'
 const W = 1080, H = 1080;
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// True when a field carries a real value — used to omit empty elements so a card
+// never shows a dangling label (e.g. "المصدر: " with nothing after it).
+const has = v => v != null && String(v).trim() !== '';
 
 /* ===== brand logo =====
  * resvg does NOT fetch remote/relative <image> hrefs — it only renders images
@@ -182,39 +185,51 @@ const TEMPLATES = {
     <rect x="380" y="160" width="320" height="74" rx="10" fill="${C.red}"/>
     <circle cx="430" cy="197" r="8" fill="#fff"/>
     <text x="555" y="210" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="#fff">خبر عاجل</text>
-    <text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>
+    ${has(d.time) ? `<text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>` : ''}
     ${arBlock(90, 280, 900, 300, d.headline, 900, 74, C.navy, 'center')}
-    <line x1="150" y1="630" x2="930" y2="630" stroke="${C.yellow}" stroke-width="5"/>
-    ${arBlock(120, 660, 840, 240, d.details, 600, 40, '#13350c', 'center')}
-    <text x="540" y="930" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="30" fill="${C.navy}">المصدر: ${esc(d.source)}</text>`
+    ${has(d.details) ? `<line x1="150" y1="630" x2="930" y2="630" stroke="${C.yellow}" stroke-width="5"/>
+    ${arBlock(120, 660, 840, 240, d.details, 600, 40, '#13350c', 'center')}` : ''}
+    ${has(d.source) ? `<text x="540" y="930" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="30" fill="${C.navy}">المصدر: ${esc(d.source)}</text>` : ''}`
   },
   confirmed: {
     name: 'انتقال رسمي',
     fields: ['player', 'club', 'contract', 'fee', 'until', 'source'],
-    content: d => `
+    content: d => {
+      const rows = [];
+      if (has(d.contract)) rows.push('المدة:  ' + d.contract);
+      if (has(d.fee)) rows.push('القيمة:  ' + d.fee);
+      if (has(d.until)) rows.push('نهاية العقد:  ' + d.until);
+      const info = rows.join('\n');
+      return `
     <rect x="400" y="162" width="280" height="72" rx="36" fill="${C.navy}"/>
     <path d="M615 198 l12 12 l22 -26" stroke="${C.yellow}" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="525" y="212" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="${C.yellow}">رسمياً</text>
     ${arBox(80, 270, 920, 120, d.player, 900, 70, C.navy)}
-    ${arBox(80, 420, 920, 46, 'انتقال إلى', 700, 32, '#13350c')}
+    ${has(d.club) ? `${arBox(80, 420, 920, 46, 'انتقال إلى', 700, 32, '#13350c')}
     <rect x="260" y="478" width="560" height="86" rx="8" fill="${C.yellow}"/>
-    ${arBox(260, 478, 560, 86, d.club, 900, 46, C.navy)}
-    ${arBox(140, 600, 800, 250, 'المدة:  ' + (d.contract||'') + '\n' + 'القيمة:  ' + (d.fee||'') + '\n' + 'نهاية العقد:  ' + (d.until||''), 700, 40, '#13350c')}
-    ${arBox(80, 892, 920, 50, 'المصدر: ' + (d.source||''), 700, 30, C.navy)}`
+    ${arBox(260, 478, 560, 86, d.club, 900, 46, C.navy)}` : ''}
+    ${has(info) ? arBox(140, 600, 800, 250, info, 700, 40, '#13350c') : ''}
+    ${has(d.source) ? arBox(80, 892, 920, 50, 'المصدر: ' + d.source, 700, 30, C.navy) : ''}`;
+    }
   },
   rumors: {
     name: 'شائعات/تقارير',
     fields: ['player', 'fromClub', 'toClub', 'details', 'status', 'source'],
-    content: d => `
+    content: d => {
+      const move = has(d.fromClub) && has(d.toClub) ? (d.fromClub + '   ←   ' + d.toClub)
+        : has(d.fromClub) ? d.fromClub
+        : has(d.toClub) ? d.toClub : '';
+      return `
     <rect x="390" y="162" width="300" height="72" rx="36" fill="none" stroke="${C.navy}" stroke-width="4" stroke-dasharray="11 8"/>
     ${arBox(390, 162, 300, 72, 'تقارير وشائعات', 900, 36, C.navy)}
     ${arBox(80, 270, 920, 120, d.player, 900, 66, C.navy)}
-    ${arBox(80, 415, 920, 60, (d.fromClub||'') + '   ←   ' + (d.toClub||''), 800, 40, '#13350c')}
-    <line x1="180" y1="500" x2="900" y2="500" stroke="${C.yellow}" stroke-width="4"/>
-    ${arBox(130, 525, 820, 235, d.details, 600, 38, '#13350c')}
-    <rect x="300" y="788" width="480" height="72" rx="36" fill="${C.yellow}"/>
-    ${arBox(300, 788, 480, 72, 'الموقف: ' + (d.status||''), 800, 34, C.navy)}
-    ${arBox(80, 892, 920, 50, 'المصدر: ' + (d.source||''), 700, 30, C.navy)}`
+    ${has(move) ? arBox(80, 415, 920, 60, move, 800, 40, '#13350c') : ''}
+    ${has(d.details) ? `<line x1="180" y1="500" x2="900" y2="500" stroke="${C.yellow}" stroke-width="4"/>
+    ${arBox(130, 525, 820, 235, d.details, 600, 38, '#13350c')}` : ''}
+    ${has(d.status) ? `<rect x="300" y="788" width="480" height="72" rx="36" fill="${C.yellow}"/>
+    ${arBox(300, 788, 480, 72, 'الموقف: ' + d.status, 800, 34, C.navy)}` : ''}
+    ${has(d.source) ? arBox(80, 892, 920, 50, 'المصدر: ' + d.source, 700, 30, C.navy) : ''}`;
+    }
   },
   quote: {
     name: 'تصريح',
@@ -224,9 +239,9 @@ const TEMPLATES = {
     ${arBox(400, 160, 280, 72, 'تصريح', 900, 40, C.yellow)}
     <text x="540" y="332" text-anchor="middle" font-family="Anton" font-size="130" fill="${C.yellow}">&#8221;</text>
     ${arBox(110, 350, 860, 320, d.quote, 800, 54, C.navy)}
-    <line x1="300" y1="708" x2="780" y2="708" stroke="${C.yellow}" stroke-width="5"/>
-    ${arBox(80, 726, 920, 70, '— ' + (d.author||''), 900, 52, C.navy)}
-    ${arBox(80, 802, 920, 50, d.role, 700, 34, '#13350c')}`
+    ${has(d.author) || has(d.role) ? `<line x1="300" y1="708" x2="780" y2="708" stroke="${C.yellow}" stroke-width="5"/>` : ''}
+    ${has(d.author) ? arBox(80, 726, 920, 70, '— ' + d.author, 900, 52, C.navy) : ''}
+    ${has(d.role) ? arBox(80, 802, 920, 50, d.role, 700, 34, '#13350c') : ''}`
   }
 };
 
