@@ -10,11 +10,26 @@
  * native SVG shapes/text, so they are resvg-safe.
  */
 
+const fs = require('fs');
+const path = require('path');
+
 /* ===== brand constants ===== */
 const C = { navy: '#0D3D07', yellow: '#7DDB5B', red: '#E63946', paper: '#FFFFFF' };
 const W = 1080, H = 1080;
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/* ===== brand logo =====
+ * resvg does NOT fetch remote/relative <image> hrefs — it only renders images
+ * embedded as base64 data URIs. So load the committed PNG once at startup and
+ * embed it. The logo is a ~3:1 "GOLAZO!" wordmark used in the top slot. */
+let LOGO_URI = '';
+try {
+  LOGO_URI = 'data:image/png;base64,' +
+    fs.readFileSync(path.join(__dirname, '..', 'golazo-logo.png')).toString('base64');
+} catch (e) {
+  console.error('golazo-logo.png not loaded (falling back to drawn wordmark):', e.message);
+}
 
 /* ===== text measurement + wrap (replaces foreignObject auto-wrap) ===== */
 
@@ -62,8 +77,23 @@ function wrapLines(text, maxW, size) {
 function arText(x, y, w, h, text, weight, size, color, opts = {}) {
   const align = opts.align || 'center';
   const valign = opts.valign || 'center';
-  const lh = (opts.lh || 1.4) * size;
-  const lines = wrapLines(text, w - 8, size);
+  const lhMul = opts.lh || 1.4;
+  const minSize = opts.minSize || 16;
+  // Flexible sizing: start at the requested size and shrink (1px steps) until
+  // the wrapped block fits the box both vertically (h) and horizontally (w).
+  // Short text never shrinks (it already fits on the first try).
+  let size2 = size;
+  let lines = wrapLines(text, w - 8, size2);
+  while (size2 > minSize) {
+    lines = wrapLines(text, w - 8, size2);
+    const blockH = (lines.length || 1) * lhMul * size2;
+    let widest = 0;
+    for (const ln of lines) { const lw = strW(ln, size2); if (lw > widest) widest = lw; }
+    if (blockH <= h && widest <= w - 8) break;
+    size2 -= 1;
+  }
+  size = size2;
+  const lh = lhMul * size;
   const n = lines.length || 1;
   const totalH = n * lh;
   let anchor, ax;
@@ -116,6 +146,9 @@ function diagBars(tx,ty,rot,bars){let s=`<g transform="translate(${tx},${ty}) ro
 function topSlot(d){
   // News pipeline leaves d.tlogo empty: resvg does not fetch remote <image>.
   if(d.tlogo && d.tlogo.trim()) return `<image href="${esc(d.tlogo)}" x="492" y="26" width="96" height="96" preserveAspectRatio="xMidYMid meet"/>`;
+  // Brand logo (embedded base64). ~3:1 wordmark, centered at the top.
+  if(LOGO_URI) return `<image href="${LOGO_URI}" x="405" y="24" width="270" height="90" preserveAspectRatio="xMidYMid meet"/>`;
+  // Fallback: drawn wordmark (only if the PNG failed to load).
   return `<g transform="translate(540,70)">
     <circle cx="-92" cy="0" r="16" fill="none" stroke="${C.navy}" stroke-width="3"/><line x1="-110" y1="0" x2="-74" y2="0" stroke="${C.navy}" stroke-width="3"/>
     <text x="-58" y="13" font-family="Anton" font-size="40" fill="${C.navy}">GOLAZO</text>

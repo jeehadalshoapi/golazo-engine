@@ -17,10 +17,14 @@ golazo-auto-API-key.txt
 Thumbs.db
 
 # Local render output
-/tmp/card_*.png
-*.png
+/tmp/
+out/
+
+# Claude Code agent memory (local only)
+memory/
 
 # Archives
 files.zip
 
 # NOTE: fonts/ is intentionally NOT ignored — TTF files are required at runtime.
+# NOTE: golazo-logo.png is intentionally NOT ignored — the renderer embeds it at runtime.
