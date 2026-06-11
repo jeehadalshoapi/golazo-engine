@@ -76,6 +76,9 @@ function charW(ch,size){ if(ch===' ')return size*0.26; if(/[0-9.,:%\-]/.test(ch)
 function strW(s,size){ let w=0; for(const ch of String(s)) w+=charW(ch,size); return w; }
 function wrapCount(text,maxW,size){ const paras=String(text).split('\n'); let n=0; for(const para of paras){ const words=para.trim().split(/\s+/).filter(Boolean); if(!words.length){n++;continue;} let line=''; for(const word of words){ const trial=line?line+' '+word:word; if(strW(trial,size)<=maxW||!line) line=trial; else { n++; line=word; } } if(line) n++; } return n||1; }
 function fitFont(html,w,h,size,lh){ const text=String(html).replace(/<[^>]*>/g,' '); let s=size; const min=16; while(s>min){ if(wrapCount(text,w-8,s)*lh*s<=h) break; s--; } return s; }
+// Omit empty fields and recenter the remaining body blocks (mirrors the service).
+const has=v=>v!=null&&String(v).trim()!=='';
+function vstack(top,bottom,blocks){ const present=blocks.filter(Boolean); if(!present.length) return ''; const totalH=present.reduce((s,b,i)=>s+b.h+(i?(b.gap||0):0),0); let y=top+Math.max(0,((bottom-top)-totalH)/2); let out=''; present.forEach((b,i)=>{ if(i) y+=(b.gap||0); out+=b.render(y); y+=b.h; }); return out; }
 
 /* ===== shared seeded texture ===== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
@@ -185,11 +188,12 @@ const TEMPLATES={
       <rect x="380" y="160" width="320" height="74" rx="10" fill="${C.red}"/>
       <circle cx="430" cy="197" r="8" fill="#fff"/>
       <text x="555" y="210" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="#fff">خبر عاجل</text>
-      <text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>
-      ${arBlock(90,280,900,300,esc(d.headline),900,74,C.navy,'center')}
-      <line x1="150" y1="630" x2="930" y2="630" stroke="${C.yellow}" stroke-width="5"/>
-      ${arBlock(120,660,840,240,esc(d.details),600,40,'#13350c','center')}
-      <text x="540" y="930" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="30" fill="${C.navy}">المصدر: ${esc(d.source)}</text>`
+      ${has(d.time)?`<text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>`:''}
+      ${vstack(258,950,[
+        {h:300,render:y=>arBox(90,y,900,300,esc(d.headline),900,74,C.navy)},
+        has(d.details)?{h:250,gap:10,render:y=>`<line x1="150" y1="${(y+18).toFixed(0)}" x2="930" y2="${(y+18).toFixed(0)}" stroke="${C.yellow}" stroke-width="5"/>`+arBox(120,y+30,840,220,esc(d.details),600,40,'#13350c')}:null,
+        has(d.source)?{h:46,gap:24,render:y=>`<text x="540" y="${(y+32).toFixed(0)}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="30" fill="${C.navy}">المصدر: ${esc(d.source)}</text>`}:null,
+      ])}`
   },
   confirmed:{
     name:'انتقال رسمي', icon:'✅',
@@ -201,16 +205,23 @@ const TEMPLATES={
       {k:'until',label:'نهاية العقد',def:'يونيو 2029'},
       {k:'source',label:'المصدر',def:'@Alittihad'},
     ],
-    content:d=>`
+    content:d=>{
+      const rows=[];
+      if(has(d.contract)) rows.push('المدة:  '+esc(d.contract));
+      if(has(d.fee)) rows.push('القيمة:  '+esc(d.fee));
+      if(has(d.until)) rows.push('نهاية العقد:  '+esc(d.until));
+      const info=rows.join('\n');
+      return `
       <rect x="400" y="162" width="280" height="72" rx="36" fill="${C.navy}"/>
       <path d="M615 198 l12 12 l22 -26" stroke="${C.yellow}" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
       <text x="525" y="212" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="${C.yellow}">رسمياً</text>
-      ${arBox(80,270,920,120,esc(d.player),900,70,C.navy)}
-      ${arBox(80,420,920,46,'انتقال إلى',700,32,'#13350c')}
-      <rect x="260" y="478" width="560" height="86" rx="8" fill="${C.yellow}"/>
-      ${arBox(260,478,560,86,esc(d.club),900,46,C.navy)}
-      ${arBox(140,600,800,250,'المدة:  '+esc(d.contract)+'\n'+'القيمة:  '+esc(d.fee)+'\n'+'نهاية العقد:  '+esc(d.until),700,40,'#13350c')}
-      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+      ${vstack(255,950,[
+        {h:120,render:y=>arBox(80,y,920,120,esc(d.player),900,70,C.navy)},
+        has(d.club)?{h:150,gap:10,render:y=>arBox(80,y,920,46,'انتقال إلى',700,32,'#13350c')+`<rect x="260" y="${(y+64).toFixed(0)}" width="560" height="86" rx="8" fill="${C.yellow}"/>`+arBox(260,y+64,560,86,esc(d.club),900,46,C.navy)}:null,
+        has(info)?{h:250,gap:16,render:y=>arBox(140,y,800,250,info,700,40,'#13350c')}:null,
+        has(d.source)?{h:50,gap:10,render:y=>arBox(80,y,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}:null,
+      ])}`;
+    }
   },
   rumors:{
     name:'شائعات/تقارير', icon:'📰',
@@ -222,16 +233,19 @@ const TEMPLATES={
       {k:'status',label:'الموقف الحالي',def:'قيد التفاوض'},
       {k:'source',label:'المصدر',def:'الصحافة الإنجليزية'},
     ],
-    content:d=>`
+    content:d=>{
+      const move=has(d.fromClub)&&has(d.toClub)?(esc(d.fromClub)+'   ←   '+esc(d.toClub)):has(d.fromClub)?esc(d.fromClub):has(d.toClub)?esc(d.toClub):'';
+      return `
       <rect x="390" y="162" width="300" height="72" rx="36" fill="none" stroke="${C.navy}" stroke-width="4" stroke-dasharray="11 8"/>
       ${arBox(390,162,300,72,'تقارير وشائعات',900,36,C.navy)}
-      ${arBox(80,270,920,120,esc(d.player),900,66,C.navy)}
-      ${arBox(80,415,920,60,esc(d.fromClub)+'   ←   '+esc(d.toClub),800,40,'#13350c')}
-      <line x1="180" y1="500" x2="900" y2="500" stroke="${C.yellow}" stroke-width="4"/>
-      ${arBox(130,525,820,235,esc(d.details),600,38,'#13350c')}
-      <rect x="300" y="788" width="480" height="72" rx="36" fill="${C.yellow}"/>
-      ${arBox(300,788,480,72,'الموقف: '+esc(d.status),800,34,C.navy)}
-      ${arBox(80,892,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}`
+      ${vstack(250,950,[
+        {h:120,render:y=>arBox(80,y,920,120,esc(d.player),900,66,C.navy)},
+        has(move)?{h:60,gap:8,render:y=>arBox(80,y,920,60,move,800,40,'#13350c')}:null,
+        has(d.details)?{h:235,gap:18,render:y=>`<line x1="180" y1="${y.toFixed(0)}" x2="900" y2="${y.toFixed(0)}" stroke="${C.yellow}" stroke-width="4"/>`+arBox(130,y+22,820,210,esc(d.details),600,38,'#13350c')}:null,
+        has(d.status)?{h:72,gap:18,render:y=>`<rect x="300" y="${y.toFixed(0)}" width="480" height="72" rx="36" fill="${C.yellow}"/>`+arBox(300,y,480,72,'الموقف: '+esc(d.status),800,34,C.navy)}:null,
+        has(d.source)?{h:50,gap:14,render:y=>arBox(80,y,920,50,'المصدر: '+esc(d.source),700,30,C.navy)}:null,
+      ])}`;
+    }
   },
   statshock:{
     name:'صدمة الرقم', icon:'🔥',
@@ -503,10 +517,10 @@ const TEMPLATES={
       <rect x="400" y="160" width="280" height="72" rx="36" fill="${C.navy}"/>
       ${arBox(400,160,280,72,'تصريح',900,40,C.yellow)}
       <text x="540" y="332" text-anchor="middle" font-family="Anton" font-size="130" fill="${C.yellow}">&#8221;</text>
-      ${arBox(110,350,860,320,esc(d.quote),800,54,C.navy)}
-      <line x1="300" y1="708" x2="780" y2="708" stroke="${C.yellow}" stroke-width="5"/>
-      ${arBox(80,726,920,70,'— '+esc(d.author),900,52,C.navy)}
-      ${arBox(80,802,920,50,esc(d.role),700,34,'#13350c')}`
+      ${vstack(352,885,[
+        {h:320,render:y=>arBox(110,y,860,320,esc(d.quote),800,54,C.navy)},
+        (has(d.author)||has(d.role))?{h:16+(has(d.author)?70:0)+(has(d.role)?50:0),gap:16,render:y=>`<line x1="300" y1="${y.toFixed(0)}" x2="780" y2="${y.toFixed(0)}" stroke="${C.yellow}" stroke-width="5"/>`+(has(d.author)?arBox(80,y+16,920,70,'— '+esc(d.author),900,52,C.navy):'')+(has(d.role)?arBox(80,y+16+(has(d.author)?70:0),920,50,esc(d.role),700,34,'#13350c'):'')}:null,
+      ])}`
   },
   didyouknow:{
     name:'هل تعلم؟', icon:'🤔',
