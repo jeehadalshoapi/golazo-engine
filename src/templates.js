@@ -269,6 +269,20 @@ const TEMPLATES = {
         (has(d.author) ? arBox(80, y + 16, 920, 70, '— ' + d.author, 900, 52, C.navy) : '') +
         (has(d.role) ? arBox(80, y + 16 + (has(d.author) ? 70 : 0), 920, 50, d.role, 700, 34, '#13350c') : '') } : null,
     ])}`
+  },
+  // Roundup cover slide (adapted from the studio `brand` template). Not a DeepSeek
+  // output — built by the roundup workflow as the first slide of the daily carousel.
+  cover: {
+    name: 'غلاف الملخص',
+    fields: ['title', 'date', 'count'],
+    content: d => `
+    ${vstack(280, 830, [
+      { h: 180, render: y => arBox(90, y, 900, 180, d.title || 'أبرز أخبار اليوم', 900, 86, C.navy) },
+      has(d.date) ? { h: 56, gap: 18, render: y => arBox(90, y, 900, 56, d.date, 700, 40, '#13350c') } : null,
+      { h: 6, gap: 26, render: y => `<rect x="360" y="${y.toFixed(0)}" width="360" height="6" fill="${C.yellow}"/>` },
+      has(d.count) ? { h: 64, gap: 26, render: y => arBox(90, y, 900, 64, d.count, 800, 48, C.navy) } : null,
+      { h: 52, gap: 44, render: y => arBox(90, y, 900, 52, 'اسحب للمزيد ←', 800, 34, '#13350c') },
+    ])}`
   }
 };
 

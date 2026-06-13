@@ -90,6 +90,33 @@ app.post('/render-url', (req, res) => {
   }
 });
 
+// Roundup — renders a cover + N news cards, hosts each, returns the ordered URL list.
+// Body: { cover?: {...}, items: [{template,data}, ...] }. `cover` (if present) is
+// prepended as a `cover` template slide. Used by the daily-roundup carousel workflow.
+app.post('/render-roundup', (req, res) => {
+  try {
+    if (!tokenOk(req)) return res.status(401).json({ error: 'unauthorized' });
+    const body = req.body || {};
+    const items = Array.isArray(body.items) ? body.items.slice() : [];
+    if (body.cover) items.unshift({ template: 'cover', data: body.cover });
+    if (!items.length) return res.status(400).json({ error: 'no items' });
+    if (items.length > 12) return res.status(400).json({ error: 'too many items', max: 12 });
+    sweep();
+    const urls = [];
+    for (const it of items) {
+      const r = renderToPng(it || {});
+      if (r.error) return res.status(400).json({ error: 'invalid item', detail: r.body, template: it && it.template });
+      const id = crypto.randomBytes(16).toString('hex');
+      IMG_STORE.set(id, { png: r.png, exp: Date.now() + IMG_TTL_MS });
+      urls.push(`${baseUrl(req)}/img/${id}.png`);
+    }
+    return res.json({ count: urls.length, urls });
+  } catch (err) {
+    console.error('render-roundup error:', err);
+    return res.status(500).json({ error: 'render failed', detail: String((err && err.message) || err) });
+  }
+});
+
 // Serve a hosted render. Accepts /img/<id> or /img/<id>.png. Public (id is the secret).
 app.get('/img/:id', (req, res) => {
   const id = String(req.params.id).replace(/\.png$/i, '');
