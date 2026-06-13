@@ -297,4 +297,49 @@ accepted items and rejected ones are silently skipped. Then set `Limit=10`.
 - `/render` validates `template` against a fixed allowlist (the TEMPLATES keys).
 - Body size capped at 256kb.
 - No remote resource loading inside SVG for the news templates (no SSRF surface).
-- Stateless: no user data stored, nothing to leak.
+- Stateless render core; the hosted-image cache (`/render-url`) is short-TTL in-memory only.
+
+---
+
+## 9. New-features design (importance, hashtags, roundup) — Parts 1–3
+
+Strategy source of truth: `golazo_posting_strategy.md`. Plan/checklist: `tasks.md`.
+
+### 9.1 DeepSeek output contract (Part 1)
+The model now emits, in addition to `template`/`key`/`data`:
+- `importance`: integer **1–5** (1 = trivial, 5 = major). Routing: `5` → immediate single;
+  `3–4` → roundup; `<3` → drop (n8n Filter keeps `importance >= 3`).
+- `hashtags`: **array** of Arabic/entity tags (no `#` needed; added at post time). Static
+  `#Golazo` + league tag are appended programmatically. Per-platform counts: X 1–2, IG 8–12
+  (in **first comment**, not caption), FB 1–2.
+- **Match results:** routine results → `تجاهل`; major (finals, Clásico, derbies, title-deciders)
+  → pass as news. The model judges; routine scorelines belong to the deferred match pipeline.
+
+Reject still emits exactly `{"template":"تجاهل"}`. Parse Code carries `importance`+`hashtags`.
+
+### 9.2 Daily roundup (Part 2)
+- **State store: PostgreSQL on Railway** (source of truth). Holds qualifying `3–4★` news
+  (`template`, `data`, `importance`, `key`, `hashtags`, `created_at`, `published`) + dedup log.
+- **Accumulate:** each hourly run INSERTs `3–4★` items (skip if `key` exists).
+- **Assemble (21:00 Asia/Riyadh):** SELECT top 5 unpublished by importance/recency.
+- **Cover template (NEW):** add `cover` to `TEMPLATES` — adapt the studio `brand` template
+  (GOLAZO wordmark + statement + tagline, already `arBox`-based) into "أبرز أخبار اليوم" +
+  date + count. Native `<text>` only.
+- **Item slides:** REUSE the existing four news templates verbatim (one card per news item).
+- **Multi-card endpoint:** `POST /render-roundup` `{ cover, items:[{template,data}] }` →
+  renders cover + each item via `buildSvg` → returns `{ urls:[...] }` (hosted via the
+  `/img/:id` store). IG/FB use all 6; **X uses cover + top 3 only (4-image cap)**.
+
+### 9.3 Publish + strategy (Parts 2d/3)
+- Buffer `create_post` with an `assets` array (image URL per slide) + per-service
+  `metadata.type` (IG `{type:'post',shouldShareToFeed:true}`, FB `{type:'post'}`).
+- Telegram approval uses **sendMediaGroup** (album) for roundups; single photo for `5★`.
+- Timing: roundup `customScheduled` 21:00; `5★` `shareNow`. Caps: hard 6/day/platform,
+  30-min anti-burst gap, `5★` uncapped. Links + IG hashtags go in the **first comment**.
+
+### 9.4 Studio template reuse map
+- **Reuse as-is:** `breaking`/`confirmed`/`rumors`/`quote` → roundup item slides.
+- **Adapt → port:** `brand` → the new `cover` template.
+- **Reference only:** `carousel` (confirms slide/index pattern via `parseSlides`).
+- **Deferred (match pipeline, heavy `foreignObject`, not ported):** `result`, `fixtures`,
+  `prematch`, `matchstats`, `ratings`, `statshock`, `comparison`, `top10`, `seasons`, etc.

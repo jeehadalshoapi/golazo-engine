@@ -2,12 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: spec-only, not yet built
+## Project status: BUILT, DEPLOYED & LIVE
 
-This directory currently holds **specifications, not an implementation**. There is no
-`package.json`, `src/`, `server.js`, or `fonts/` yet. The five `*.md` files plus
-`golazo_studio.html` are the inputs for building the service from scratch. When asked to
-build, follow the file-creation order and phases below — do not assume code already exists.
+The service is implemented (`package.json`, `src/`, `server.js`, `fonts/` all present),
+deployed on **Railway** (public repo `golazo-engine`), and wired into a working **n8n**
+pipeline that publishes to **Telegram + Buffer (Facebook/Instagram/Twitter)** behind a
+human approval gate. See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
+
+**Current work** (see `tasks.md` for the step-by-step plan, `golazo_posting_strategy.md`
+for the locked strategy): **Part 1** — add `importance` (1–5) + `hashtags` to DeepSeek and
+filter `>= 3`; **Part 2** — daily **roundup carousel** (accumulate 3–4★ news in Postgres,
+assemble cover + top-5 cards at 9 PM Riyadh, multi-asset Buffer post); **Part 3** — fold in
+timing/caps. `5★` news posts immediately as a single; `3–4★` feeds the roundup; `<3` dropped.
 
 ## What this builds
 
@@ -53,12 +59,15 @@ POST /render { template, data }
   (`path.join(__dirname, '..', 'fonts')`), `loadSystemFonts: false`, `defaultFontFamily: 'Cairo'`.
 - **`server.js`** — HTTP only (routing, validation, error mapping). `express.json({limit:'256kb'})`.
 
-### Scope: NEWS category only
+### Scope: NEWS pipeline (4 cards + roundup)
 
-Build exactly **four** templates — `breaking`, `confirmed`, `rumors`, `quote` (exact field
-lists and verified SVG bodies in `design.md §4` — use them verbatim, never invent field names).
-DATA templates (fixtures/results/top10), HYBRID templates, Buffer publishing, and PostgreSQL
-dedup are **later milestones — do not build them now**.
+The four NEWS templates — `breaking`, `confirmed`, `rumors`, `quote` (exact field lists and
+verified SVG bodies in `design.md §4`) — are built and live; reuse them verbatim, never invent
+field names. The **daily roundup carousel** (Part 2) reuses these four as its item slides and
+adds **one new `cover` template** (adapt the studio `brand` template). DeepSeek now also emits
+`importance` (1–5) and `hashtags`. **Postgres** (on Railway) is the state store for accumulating
+roundup items + dedup. The **MATCH pipeline** (pre/post-match, stat cards from api-football),
+HYBRID/DATA studio templates, and TikTok remain **deferred — do not build them now**.
 
 ## API
 
