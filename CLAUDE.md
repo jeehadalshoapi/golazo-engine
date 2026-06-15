@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The service is implemented (`package.json`, `src/`, `server.js`, `fonts/` all present),
 deployed on **Railway** (public repo `golazo-engine`), and wired into a working **n8n**
-pipeline that publishes to **Telegram + Buffer (Facebook/Instagram/Twitter)** behind a
-human approval gate. See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
+pipeline that publishes to **Buffer (Facebook/Instagram/X)**. `5★` singles publish
+**directly** (no approval); the nightly roundup is gated by an **inline Telegram approval**
+("Send and Wait for Response"). See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
 
 **Status (2026-06-15): the strategy's core is LIVE.** `5★` news posts instantly as a single;
 `3–4★` accumulates in Postgres and posts as a nightly **roundup carousel** (cover + top-5,
@@ -67,28 +68,34 @@ POST /render { template, data }
 
 The four NEWS templates — `breaking`, `confirmed`, `rumors`, `quote` (exact field lists and
 verified SVG bodies in `design.md §4`) — are built and live; reuse them verbatim, never invent
-field names. The **daily roundup carousel** (Part 2) reuses these four as its item slides and
-adds **one new `cover` template** (adapt the studio `brand` template). DeepSeek now also emits
-`importance` (1–5) and `hashtags`. **Postgres** (on Railway) is the state store for accumulating
-roundup items + dedup. The **MATCH pipeline** (pre/post-match, stat cards from api-football),
+field names. The **daily roundup carousel** (Part 2, built) reuses these four as its item slides plus a
+fifth `cover` template (in `TEMPLATES`, adapted from the studio `brand` template) — rendered via
+`POST /render-roundup`. DeepSeek also emits `importance` (1–5) and `hashtags`. **Postgres** (on
+Railway, table `roundup_news`) is the state store for accumulating roundup items + dedup. The **MATCH pipeline** (pre/post-match, stat cards from api-football),
 HYBRID/DATA studio templates, and TikTok remain **deferred — do not build them now**.
 
-## API
+## API (all in `server.js`)
 
 | Method | Endpoint | Body | Response |
 |--------|----------|------|----------|
-| GET | `/health` | — | `{ ok:true, templates:[...] }` |
-| POST | `/render` | `{ template, data }` | `image/png` binary |
+| GET | `/health` | — | `{ ok, templates:[...], hosted }` |
+| POST | `/render` | `{ template, data }` | `image/png` binary (Telegram path) |
+| POST | `/render-url` | `{ template, data }` | `{ id, url }` — hosts the PNG in a 6h in-memory cache (Buffer needs a URL, not binary) |
+| GET | `/img/:id.png` | — | `image/png` (serves a hosted render; **public** — the id is the secret) |
+| POST | `/render-roundup` | `{ cover?, items:[{template,data}] }` | `{ count, urls }` — renders cover + each card, returns the ordered hosted-URL list (daily carousel) |
 
 Errors use shape `{ error, detail }`. Unknown template → 400 with `available:[...]`.
-If env `RENDER_TOKEN` is set, `/render` requires header `x-golazo-token` to match, else 401.
+If env `RENDER_TOKEN` is set, `/render`, `/render-url`, `/render-roundup` require header
+`x-golazo-token` to match, else 401. `/img/:id` is intentionally open so Buffer/Telegram can fetch it.
+The hosted-image cache means the service is **no longer fully stateless** (per-instance, cleared on redeploy).
 
 ## Commands
 
 ```bash
 npm install            # express + @resvg/resvg-js
 npm start              # node server.js — listens on PORT (default 3000)
-node test_cards.js     # renders one sample PNG per template to /tmp/card_*.png — open and eyeball
+node test_cards.js     # renders one sample PNG per template to ./out/card_*.png — open and eyeball
+node test_cards.js DIR # optional: write the samples to DIR instead of ./out
 
 # smoke test a running server
 curl -X POST http://localhost:3000/render \
@@ -109,17 +116,25 @@ and the full frame (decorations + hashtag chip + footer `الكرة بالأرق
 - Commit format `type(scope): message` (`feat`/`fix`/`refactor`/`docs`/`chore`).
 - Communicate with the developer (Gehad) in **Arabic**; all code, comments, and identifiers in **English**.
 
-## Source-of-truth docs (read in this order when building)
+## Source-of-truth docs
 
-`agent.md` (role + the foreignObject rule) → `planning.md` (architecture/decisions) →
-`rules.md` (hard rules) → `design.md` (exact algorithms + template bodies + n8n spec) →
-`tasks.md` (phased checklist — mark `[x]` as you go). `golazo_studio.html` is the **visual
-source of truth** for frame/layout. `HOWTO-CLAUDE-CODE.md` is the human operator's guide.
+**To understand current state first:** `PROJECT-SUMMARY.md` (live pipeline diagram + build log +
+every problem/fix) and `tasks.md` (what's done / what's remaining + the live n8n architecture).
+**Strategy/decisions:** `golazo_posting_strategy.md` (the locked posting strategy — importance
+routing, 9 PM roundup, caps).
+
+**For the renderer internals:** `agent.md` (role + the foreignObject rule) → `planning.md`
+(architecture/decisions) → `rules.md` (hard rules) → `design.md` (exact algorithms + template
+bodies + n8n spec; **§9 = the new-features design, §9.3 = AS BUILT**). `golazo_studio.html` is the
+**visual source of truth** for frame/layout. `HOWTO-CLAUDE-CODE.md` is the human operator's guide.
 
 ## Security note
 
 `golazo-auto-API-key.txt` in this directory contains **live secrets** (a DeepSeek API key and
-a Telegram bot token). This service needs no secrets of its own. Per the project rules the
-deployed repo must be public and contain **zero secrets** — never commit this file (or its
-contents) to the Golazo Engine repo; secrets belong only in Railway env vars. The service's
-only optional secret is `RENDER_TOKEN`.
+a Telegram bot token); a **Buffer access token** also exists (used by the n8n Buffer node). This
+service needs no secrets of its own. Per the project rules the deployed repo must be public and
+contain **zero secrets** — never commit this file (or its contents); secrets belong only in
+Railway env vars / n8n credentials. The service's only optional secret is `RENDER_TOKEN` (set in
+Railway). **Pending before public launch:** rotate the DeepSeek / Telegram / Buffer tokens (they
+were exposed in plaintext + the build chat). `golazo-auto-API-key.txt`, `out/`, and `memory/` are
+gitignored; `fonts/` and `golazo-logo.png` are intentionally committed (required at runtime).
