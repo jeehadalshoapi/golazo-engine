@@ -31,6 +31,12 @@ The NEWS pipeline (RSS → DeepSeek → render → Buffer) is unchanged and runs
 > already uses). Order the post-match carousel `result, matchstats, ratings` so the 3 best
 > slides survive the X cap.
 
+> **⚠️ Current phase = PREVIEW ONLY (no publishing, no approval).** While building/testing,
+> **every MATCH workflow ends at a Telegram album preview** (`sendMediaGroup`) — there is **no
+> Buffer node and no Send-and-Wait approval** yet. The "Format / Approval" columns above describe
+> the *eventual* wiring; ignore them for now. When the cards look right, swap the preview node for
+> the roundup's Buffer tail (and re-add approval where the table says "inline Telegram").
+
 ---
 
 ## 1.5 Data layer — n8n reads via `golazo-server` (the same proxy the app uses)
