@@ -189,6 +189,32 @@ function vstack(top, bottom, blocks) {
   return out;
 }
 
+/* ===== match-card helpers (ported from golazo_studio.html, resvg-native) ===== */
+
+// Split a "a | b | c" line into trimmed cells, and a multiline list into
+// trimmed non-empty rows (capped). Used by the table/list match templates.
+const cells = s => String(s == null ? '' : s).split('|').map(x => x.trim());
+const listRows = (s, cap) => String(s == null ? '' : s).split('\n').map(x => x.trim()).filter(Boolean).slice(0, cap);
+
+// Big two-tone block heading (e.g. MATCH / DAY). Verbatim native SVG from Studio.
+function blockTitle(t1, t2) {
+  return `
+  <rect x="545" y="150" width="320" height="14" fill="${C.navy}"/>
+  <rect x="230" y="232" width="320" height="82" fill="${C.yellow}"/>
+  <rect x="545" y="160" width="320" height="150" fill="${C.navy}"/>
+  <text x="245" y="300" font-family="Anton" font-size="150" fill="${C.navy}">${esc(t1)}</text>
+  <text x="705" y="300" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.yellow}">${esc(t2)}</text>`;
+}
+
+// Team crest centered at (cx,cy). resvg renders ONLY base64 data: images — it will
+// NOT fetch http(s) logo URLs — so n8n must pass logos as data: URIs; anything else
+// falls back to the dashed-shield placeholder. (Same constraint as the brand logo.)
+function crest(cx, cy, logo) {
+  if (logo && String(logo).trim().startsWith('data:'))
+    return `<image href="${esc(logo)}" x="${cx - 72}" y="${cy - 72}" width="144" height="144" preserveAspectRatio="xMidYMid meet"/>`;
+  return `<g><path d="M${cx},${cy - 74} L${cx + 64},${cy - 50} L${cx + 64},${cy + 16} Q${cx + 64},${cy + 58} ${cx},${cy + 82} Q${cx - 64},${cy + 58} ${cx - 64},${cy + 16} L${cx - 64},${cy - 50} Z" fill="none" stroke="${C.navy}" stroke-width="4" stroke-dasharray="8 8"/><text x="${cx}" y="${cy + 8}" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="24" fill="${C.navy}">شعار</text></g>`;
+}
+
 /* ===== news templates (4) — bodies from design.md, verified Studio layout ===== */
 const TEMPLATES = {
   breaking: {
@@ -270,6 +296,214 @@ const TEMPLATES = {
         (has(d.author) ? arBox(80, y + 16, 920, 70, '— ' + d.author, 900, 52, C.navy) : '') +
         (has(d.role) ? arBox(80, y + 16 + (has(d.author) ? 70 : 0), 920, 50, d.role, 700, 34, '#13350c') : '') } : null,
     ])}`
+  },
+
+  /* ===== MATCH templates (api-football pipeline) — native ports of the Studio bodies ===== */
+
+  // League table (already ordered top→down; rank is derived from row order).
+  // rows: one team per line — "team | played | GD | pts".
+  standing: {
+    name: 'ترتيب الدوري',
+    fields: ['comp', 'rows'],
+    content: d => {
+      const rows = listRows(d.rows, 8);
+      const top = 350, bottom = 930;
+      const gap = Math.min(72, (bottom - top) / Math.max(rows.length, 1));
+      const fs = Math.max(22, Math.min(32, Math.floor(gap * 0.42)));
+      const X = { rank: 960, team: 905, played: 470, gd: 320, pts: 165 };
+      const hLabel = (x, t, anchor) => `<text x="${x}" y="335" text-anchor="${anchor}" font-family="Cairo" font-weight="800" font-size="22" fill="#3a5a33">${t}</text>`;
+      const header = hLabel(X.rank, '#', 'end') + hLabel(X.team, 'الفريق', 'end') +
+        hLabel(X.played, 'لعب', 'middle') + hLabel(X.gd, '+/-', 'middle') + hLabel(X.pts, 'نقاط', 'middle');
+      let body = '';
+      rows.forEach((r, i) => {
+        const c = cells(r);
+        const pos = i + 1, team = c[0] || '', played = c[1] || '', gd = c[2] || '', pts = c[3] || '';
+        const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
+        if (i % 2 === 0) body += `<rect x="100" y="${y.toFixed(0)}" width="880" height="${gap.toFixed(0)}" rx="8" fill="${C.navy}" opacity="0.05"/>`;
+        body += `<text x="${X.rank}" y="${tb}" text-anchor="end" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(pos)}</text>`;
+        body += `<text x="${X.team}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(team)}</text>`;
+        body += `<text x="${X.played}" y="${tb}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="${fs}" fill="#13350c">${esc(played)}</text>`;
+        body += `<text x="${X.gd}" y="${tb}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="${fs}" fill="#13350c">${esc(gd)}</text>`;
+        body += `<rect x="${X.pts - 42}" y="${(cy - gap * 0.3).toFixed(0)}" width="84" height="${(gap * 0.6).toFixed(0)}" rx="8" fill="${C.yellow}"/>`;
+        body += `<text x="${X.pts}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(pts)}</text>`;
+      });
+      return `
+    <rect x="350" y="158" width="380" height="72" rx="36" fill="${C.navy}"/>
+    ${arBox(350, 158, 380, 72, 'ترتيب الدوري', 900, 34, C.yellow)}
+    ${arBox(80, 250, 920, 56, d.comp, 800, 40, C.navy)}
+    ${header}
+    ${body}`;
+    }
+  },
+
+  // Pre-match poster. comp/round + the two teams + kickoff. Logos via data: URI only.
+  prematch: {
+    name: 'قبل المباراة',
+    fields: ['comp', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'date', 'time', 'stadium'],
+    content: d => `
+    ${blockTitle('MATCH', 'DAY')}
+    <text x="540" y="376" text-anchor="middle" font-family="Anton" font-size="62" fill="${C.navy}">${esc(d.comp)}</text>
+    ${arBox(80, 392, 920, 40, d.round, 800, 30, '#13350c')}
+    ${crest(245, 560, d.homeLogo)}
+    ${crest(865, 560, d.awayLogo)}
+    <rect x="360" y="478" width="360" height="170" rx="8" fill="${C.yellow}"/>
+    <text x="540" y="612" text-anchor="middle" font-family="Anton" font-size="140" fill="${C.navy}">VS</text>
+    <rect x="200" y="690" width="680" height="74" rx="6" fill="${C.yellow}"/>
+    ${arBox(210, 690, 300, 74, d.home, 900, 40, C.navy)}
+    <rect x="505" y="698" width="70" height="58" fill="${C.navy}"/>
+    <text x="540" y="739" text-anchor="middle" font-family="Anton" font-size="32" fill="${C.yellow}">VS</text>
+    ${arBox(570, 690, 300, 74, d.away, 900, 40, C.navy)}
+    <text x="540" y="838" text-anchor="middle" font-family="Anton" font-size="56" fill="${C.navy}">${esc(d.date)}</text>
+    ${arBox(80, 852, 920, 44, [d.time, d.stadium].filter(has).join('   ·   '), 700, 32, '#13350c')}
+    ${arBox(80, 902, 920, 40, 'من سيفوز؟ شاركنا توقّعك', 800, 28, C.navy)}`
+  },
+
+  // Full-time result. score + per-team event lines (goal/card — one per line).
+  result: {
+    name: 'نتيجة المباراة',
+    fields: ['comp', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'hs', 'as', 'homeEvents', 'awayEvents'],
+    content: d => {
+      const hE = listRows(d.homeEvents, 8), aE = listRows(d.awayEvents, 8);
+      const n = Math.max(hE.length, aE.length, 1);
+      let fs = Math.floor(150 / (n * 1.45)); fs = Math.max(14, Math.min(28, fs));
+      const col = (x, name, arr) =>
+        arBox(x, 778, 420, 40, name, 900, 28, C.navy) +
+        `<line x1="${x + 60}" y1="824" x2="${x + 360}" y2="824" stroke="${C.yellow}" stroke-width="3"/>` +
+        arBlock(x, 834, 420, 138, arr.join('\n'), 600, fs, '#13350c');
+      return `
+    ${blockTitle('FULL', 'TIME')}
+    <text x="540" y="376" text-anchor="middle" font-family="Anton" font-size="62" fill="${C.navy}">${esc(d.comp)}</text>
+    ${arBox(80, 392, 920, 40, d.round, 800, 30, '#13350c')}
+    ${crest(245, 560, d.homeLogo)}
+    ${crest(865, 560, d.awayLogo)}
+    <rect x="360" y="478" width="360" height="170" rx="8" fill="${C.yellow}"/>
+    <rect x="535" y="493" width="10" height="140" fill="${C.navy}"/>
+    <text x="455" y="612" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.navy}">${esc(d.hs)}</text>
+    <text x="625" y="612" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.navy}">${esc(d.as)}</text>
+    <rect x="200" y="690" width="680" height="74" rx="6" fill="${C.yellow}"/>
+    ${arBox(210, 690, 300, 74, d.home, 900, 40, C.navy)}
+    <rect x="505" y="698" width="70" height="58" fill="${C.navy}"/>
+    <text x="540" y="737" text-anchor="middle" font-family="Anton" font-size="30" fill="${C.yellow}">FT</text>
+    ${arBox(570, 690, 300, 74, d.away, 900, 40, C.navy)}
+    ${col(80, d.home, hE)}
+    ${col(580, d.away, aE)}`;
+    }
+  },
+
+  // Match statistics with comparison bars. stats: "label | home | away" per line.
+  matchstats: {
+    name: 'تحليل إحصائي',
+    fields: ['home', 'away', 'score', 'stats'],
+    content: d => {
+      const rows = listRows(d.stats, 7);
+      const startY = 372, rowH = Math.min(104, (930 - startY) / Math.max(rows.length, 1));
+      let body = '';
+      rows.forEach((r, i) => {
+        const p = cells(r); const label = p[0] || '', hv = p[1] || '', av = p[2] || '';
+        const hN = parseFloat(String(hv).replace(/[^0-9.]/g, '')) || 0, aN = parseFloat(String(av).replace(/[^0-9.]/g, '')) || 0, tot = (hN + aN) || 1;
+        const barX = 140, barW = 800, hW = Math.max(4, Math.round(barW * hN / tot));
+        const y = startY + i * rowH;
+        body += `<text x="150" y="${y.toFixed(0)}" font-family="Cairo" font-weight="800" font-size="34" fill="${C.navy}">${esc(hv)}</text>`;
+        body += `<text x="930" y="${y.toFixed(0)}" text-anchor="end" font-family="Cairo" font-weight="800" font-size="34" fill="${C.navy}">${esc(av)}</text>`;
+        body += arBox(390, y - 34, 300, 40, label, 800, 26, '#13350c');
+        const by = (y + 16).toFixed(0);
+        body += `<rect x="${barX}" y="${by}" width="${barW}" height="16" rx="8" fill="#e6ece4"/>`;
+        body += `<rect x="${barX}" y="${by}" width="${hW}" height="16" rx="8" fill="${C.navy}"/>`;
+        body += `<rect x="${barX + hW}" y="${by}" width="${barW - hW}" height="16" rx="8" fill="${C.yellow}"/>`;
+      });
+      return `
+    <rect x="350" y="158" width="380" height="72" rx="36" fill="${C.navy}"/>
+    ${arBox(350, 158, 380, 72, 'إحصائيات المباراة', 900, 34, C.yellow)}
+    ${arBox(80, 250, 360, 60, d.home, 900, 40, C.navy)}
+    ${arBox(440, 250, 200, 60, d.score, 900, 46, C.navy)}
+    ${arBox(640, 250, 360, 60, d.away, 900, 40, C.navy)}
+    ${body}
+    <rect x="335" y="905" width="22" height="22" fill="${C.navy}"/>${arBox(360, 899, 150, 34, d.home, 700, 24, C.navy)}
+    <rect x="560" y="905" width="22" height="22" fill="${C.yellow}"/>${arBox(585, 899, 150, 34, d.away, 700, 24, C.navy)}`;
+    }
+  },
+
+  // Player ratings. list: "name | rating" per line. Chip color by rating band.
+  ratings: {
+    name: 'تقييمات اللاعبين',
+    fields: ['team', 'list'],
+    content: d => {
+      const rows = listRows(d.list, 11);
+      const top = 320, gap = Math.min(56, (905 - top) / Math.max(rows.length, 1));
+      const fs = Math.max(22, Math.min(32, Math.floor(gap * 0.55)));
+      let body = '';
+      rows.forEach((r, i) => {
+        const p = cells(r); const name = p[0] || '', rt = p[1] || '', rv = parseFloat(rt) || 0;
+        const bg = rv >= 7.5 ? C.navy : rv >= 6.5 ? C.yellow : C.red;
+        const fg = (rv >= 6.5 && rv < 7.5) ? C.navy : '#fff';
+        const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
+        const cw = 96, cx0 = 130;
+        body += `<text x="930" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(name)}</text>`;
+        body += `<rect x="${cx0}" y="${(cy - gap * 0.32).toFixed(0)}" width="${cw}" height="${(gap * 0.64).toFixed(0)}" rx="8" fill="${bg}"/>`;
+        body += `<text x="${cx0 + cw / 2}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${fg}">${esc(rt)}</text>`;
+        if (i < rows.length - 1) body += `<line x1="150" y1="${(y + gap).toFixed(0)}" x2="930" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.5" opacity="0.5"/>`;
+      });
+      return `
+    <rect x="360" y="150" width="360" height="72" rx="36" fill="${C.navy}"/>
+    ${arBox(360, 150, 360, 72, 'تقييمات اللاعبين', 900, 34, C.yellow)}
+    ${arBox(80, 232, 920, 46, d.team, 700, 30, '#13350c')}
+    ${body}`;
+    }
+  },
+
+  // Today's fixtures list. list: "home | away | league | time" per line.
+  fixtures: {
+    name: 'مباريات اليوم',
+    fields: ['date', 'comp', 'list'],
+    content: d => {
+      const rows = listRows(d.list, 12);
+      const top = 330, bottom = 930, gap = Math.min(60, (bottom - top) / Math.max(rows.length, 1));
+      const fs = Math.max(20, Math.min(28, Math.floor(gap * 0.5)));
+      let body = '';
+      rows.forEach((r, i) => {
+        const p = cells(r); const home = p[0] || '', away = p[1] || '', league = p[2] || '', time = p[3] || '';
+        const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
+        body += `<text x="95" y="${tb}" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(time)}</text>`;
+        body += arBox(555, cy - gap / 2, 270, gap, home, 800, fs, C.navy);
+        body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}" opacity="0.5">×</text>`;
+        body += arBox(255, cy - gap / 2, 270, gap, away, 800, fs, C.navy);
+        if (league) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(league)}</text>`;
+        if (i < rows.length - 1) body += `<line x1="95" y1="${(y + gap).toFixed(0)}" x2="985" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
+      });
+      return `
+    <rect x="370" y="158" width="340" height="72" rx="36" fill="${C.navy}"/>
+    ${arBox(370, 158, 340, 72, 'مباريات اليوم', 900, 36, C.yellow)}
+    ${arBox(80, 248, 920, 44, [d.comp, d.date].filter(has).join('   ·   '), 700, 30, '#13350c')}
+    ${body}`;
+    }
+  },
+
+  // Today's results list. list: "home | away | score | note" per line.
+  results: {
+    name: 'نتائج اليوم',
+    fields: ['date', 'comp', 'list'],
+    content: d => {
+      const rows = listRows(d.list, 10);
+      const top = 330, bottom = 930, gap = Math.min(64, (bottom - top) / Math.max(rows.length, 1));
+      const fs = Math.max(20, Math.min(28, Math.floor(gap * 0.46)));
+      let body = '';
+      rows.forEach((r, i) => {
+        const p = cells(r); const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '';
+        const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
+        const sw = Math.max(70, strW(score, fs) + 28);
+        body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.30).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.6).toFixed(0)}" rx="7" fill="${C.yellow}"/>`;
+        body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(score)}</text>`;
+        body += arBox(560, cy - gap / 2, 280, gap, home, 800, fs, C.navy);
+        body += arBox(240, cy - gap / 2, 280, gap, away, 800, fs, C.navy);
+        if (note) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(note)}</text>`;
+        if (i < rows.length - 1) body += `<line x1="95" y1="${(y + gap).toFixed(0)}" x2="985" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
+      });
+      return `
+    <rect x="330" y="158" width="420" height="72" rx="36" fill="${C.navy}"/>
+    ${arBox(330, 158, 420, 72, 'نتائج اليوم', 900, 34, C.yellow)}
+    ${arBox(80, 248, 920, 44, [d.comp, d.date].filter(has).join('   ·   '), 700, 30, '#13350c')}
+    ${body}`;
+    }
   },
   // Roundup cover slide (adapted from the studio `brand` template). Not a DeepSeek
   // output — built by the roundup workflow as the first slide of the daily carousel.

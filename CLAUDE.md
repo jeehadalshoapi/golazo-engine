@@ -61,22 +61,35 @@ POST /render { template, data }
   editing a template body: `arText` **auto-shrinks** the font (1px steps, down to `minSize`) until
   the wrapped block fits its box, and `vstack(top, bottom, blocks)` vertically centers a list of
   body blocks — pass each optional block as `has(field) ? {...} : null` so missing fields recenter
-  the rest instead of leaving a hole or a dangling label. Exports `{ buildSvg, TEMPLATES, C, W, H }`.
-  If it passes ~400 lines, split into `src/svg-helpers.js` + `src/news-templates.js`, keeping
-  `buildSvg` as the single entry.
+  the rest instead of leaving a hole or a dangling label. The MATCH templates add helpers
+  `blockTitle` (two-tone heading), `crest` (team logo / dashed placeholder), and `cells`/`listRows`
+  (split the pipe+newline list strings the table/list cards take). Exports `{ buildSvg, TEMPLATES, C, W, H }`.
+  This file now **exceeds the ~400-line guideline** (11 templates) — splitting into
+  `src/svg-helpers.js` + `src/news-templates.js` + `src/match-templates.js` (keeping `buildSvg`
+  as the single entry) is the recommended next refactor.
 - **`src/render.js`** — only the resvg wrapper. Fonts referenced by **absolute path**
   (`path.join(__dirname, '..', 'fonts')`), `loadSystemFonts: false`, `defaultFontFamily: 'Cairo'`.
 - **`server.js`** — HTTP only (routing, validation, error mapping). `express.json({limit:'256kb'})`.
 
-### Scope: NEWS pipeline (4 cards + roundup)
+### Scope: NEWS pipeline (4 cards + roundup) + MATCH pipeline (renderer built)
 
 The four NEWS templates — `breaking`, `confirmed`, `rumors`, `quote` (exact field lists and
 verified SVG bodies in `design.md §4`) — are built and live; reuse them verbatim, never invent
 field names. The **daily roundup carousel** (Part 2, built) reuses these four as its item slides plus a
 fifth `cover` template (in `TEMPLATES`, adapted from the studio `brand` template) — rendered via
 `POST /render-roundup`. DeepSeek also emits `importance` (1–5) and `hashtags`. **Postgres** (on
-Railway, table `roundup_news`) is the state store for accumulating roundup items + dedup. The **MATCH pipeline** (pre/post-match, stat cards from api-football),
-HYBRID/DATA studio templates, and TikTok remain **deferred — do not build them now**.
+Railway, table `roundup_news`) is the state store for accumulating roundup items + dedup.
+
+The **MATCH pipeline** templates are now **built in the renderer** (not deferred): `standing`,
+`prematch`, `result`, `matchstats`, `ratings`, `fixtures`, `results` — all native-SVG ports of the
+Studio bodies (the Studio versions use `<foreignObject>` and must NOT be copied verbatim). Their
+**n8n orchestration is specced but not built** — see `MATCH-pipeline.md` (api-football endpoints,
+schedules, the top-5 filter, payload mapping). The HYBRID/DATA studio templates and TikTok remain
+**deferred — do not build them now**.
+
+**Team logos:** `crest()` (used by `prematch`/`result`) only embeds base64 `data:` URIs — resvg
+will NOT fetch http(s) logo URLs (same constraint as the brand logo). n8n must download + base64
+the api-football logo before passing `homeLogo`/`awayLogo`, else the dashed-shield placeholder shows.
 
 ## API (all in `server.js`)
 
@@ -125,7 +138,8 @@ and the full frame (decorations + hashtag chip + footer `الكرة بالأرق
 **To understand current state first:** `PROJECT-SUMMARY.md` (live pipeline diagram + build log +
 every problem/fix) and `tasks.md` (what's done / what's remaining + the live n8n architecture).
 **Strategy/decisions:** `golazo_posting_strategy.md` (the locked posting strategy — importance
-routing, 9 PM roundup, caps).
+routing, 9 PM roundup, caps). **MATCH pipeline:** `MATCH-pipeline.md` (api-football → render →
+Buffer build spec — leagues, top-5 filter, schedules, per-template payload mapping).
 
 **For the renderer internals:** `agent.md` (role + the foreignObject rule) → `planning.md`
 (architecture/decisions) → `rules.md` (hard rules) → `design.md` (exact algorithms + template

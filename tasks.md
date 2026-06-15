@@ -84,9 +84,21 @@ Schedule(21:00) → Postgres SELECT top-5 unpublished (incl. hashtags)
 
 ---
 
+## ⚽ MATCH pipeline (api-football) — renderer BUILT, n8n TODO
+Renderer templates are **done & verified** in `src/templates.js`: `standing`, `prematch`,
+`result`, `matchstats`, `ratings`, `fixtures`, `results` (native-SVG ports of the Studio bodies).
+Full build spec (endpoints, schedules, top-5 filter, payload mapping) is in **`MATCH-pipeline.md`**.
+- [x] Render templates for fixtures / standing / pre-match / result / matchstats / ratings / results.
+- [ ] n8n: build daily TOP5/STANDINGS set (top-5 of each domestic league).
+- [ ] n8n: morning **today's fixtures** carousel (1 card/league).
+- [ ] n8n: **pre-match** single (~3h before) — gated by top-5 filter (either team).
+- [ ] n8n: **post-match carousel** `result→matchstats→ratings` at full-time — Telegram approval.
+- [ ] n8n: end-of-day **results** carousel — Telegram approval.
+- [ ] n8n: base64-encode team logos before render (resvg won't fetch URL crests).
+- [ ] Leagues: Roshn + EPL/La Liga/Serie A/Bundesliga/Ligue 1 + UCL + World Cup.
+
 ## 🕓 Deferred (separate later projects)
-- [ ] MATCH pipeline: Pre-Match (1h before), Post-Match (final whistle), stat cards from
-      api-football — timing relative to fixtures, independent of `importance`.
+- [ ] Full UCL / World Cup coverage (currently gated by domestic top-5); `lineup` XI cards.
 - [ ] TikTok (Photo Mode) after IG/FB/X are stable.
 - [ ] Optional Google Sheet mirror of `roundup_news` for human review.
 
