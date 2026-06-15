@@ -330,12 +330,18 @@ Reject still emits exactly `{"template":"تجاهل"}`. Parse Code carries `impo
   renders cover + each item via `buildSvg` → returns `{ urls:[...] }` (hosted via the
   `/img/:id` store). IG/FB use all 6; **X uses cover + top 3 only (4-image cap)**.
 
-### 9.3 Publish + strategy (Parts 2d/3)
-- Buffer `create_post` with an `assets` array (image URL per slide) + per-service
-  `metadata.type` (IG `{type:'post',shouldShareToFeed:true}`, FB `{type:'post'}`).
-- Telegram approval uses **sendMediaGroup** (album) for roundups; single photo for `5★`.
-- Timing: roundup `customScheduled` 21:00; `5★` `shareNow`. Caps: hard 6/day/platform,
-  30-min anti-burst gap, `5★` uncapped. Links + IG hashtags go in the **first comment**.
+### 9.3 Publish + strategy — AS BUILT (Parts 2d/3, 2026-06-15)
+What actually shipped (differs from the original plan above — kept for the record):
+- Buffer `create_post` with an `assets` array + per-service `metadata.type` (IG
+  `{type:'post',shouldShareToFeed:true}`, FB `{type:'post'}`, X none). X capped to 4 images.
+- **Singles (5★): direct publish** (`shareNow`), no approval gate; optional Telegram preview.
+- **Roundup approval: n8n "Send and Wait for Response"** (Approval) — inline in the one roundup
+  workflow. The earlier plan (separate Telegram-Trigger workflow + `roundup_batches` table) was
+  **abandoned** (Telegram allows one Trigger/bot; media groups can't carry buttons; hard to test).
+- **Hashtags: in the CAPTION**, per platform (X ~2, FB ~3, IG ~12; `#Golazo` always). Buffer MCP
+  `create_post` has **no first-comment field**, so the strategy's "first comment" idea isn't used.
+- Caps (6/day/platform, 30-min anti-burst) and schedule activation are **not yet built** —
+  optional/operational, see `tasks.md`. Current build is verified live (FB/IG/X).
 
 ### 9.4 Studio template reuse map
 - **Reuse as-is:** `breaking`/`confirmed`/`rumors`/`quote` → roundup item slides.

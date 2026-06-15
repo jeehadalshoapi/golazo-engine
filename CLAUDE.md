@@ -9,11 +9,15 @@ deployed on **Railway** (public repo `golazo-engine`), and wired into a working 
 pipeline that publishes to **Telegram + Buffer (Facebook/Instagram/Twitter)** behind a
 human approval gate. See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
 
-**Current work** (see `tasks.md` for the step-by-step plan, `golazo_posting_strategy.md`
-for the locked strategy): **Part 1** — add `importance` (1–5) + `hashtags` to DeepSeek and
-filter `>= 3`; **Part 2** — daily **roundup carousel** (accumulate 3–4★ news in Postgres,
-assemble cover + top-5 cards at 9 PM Riyadh, multi-asset Buffer post); **Part 3** — fold in
-timing/caps. `5★` news posts immediately as a single; `3–4★` feeds the roundup; `<3` dropped.
+**Status (2026-06-15): the strategy's core is LIVE.** `5★` news posts instantly as a single;
+`3–4★` accumulates in Postgres and posts as a nightly **roundup carousel** (cover + top-5,
+9 PM Riyadh, inline Telegram approval); `<3` is dropped. All to FB/IG/X via Buffer, with
+per-platform hashtags in the caption. **Part 1** (importance+hashtags+filter) and **Part 2**
+(roundup) are DONE; **Part 3** is partial (singles direct-publish + hashtags done; optional
+caps + schedule activation + secret rotation remain). The MATCH pipeline (api-football) and
+TikTok stay deferred. **Most of the system lives in n8n, not this repo** — the live n8n
+architecture, build log, and every problem/fix are in `PROJECT-SUMMARY.md`; the phased
+status + remaining work are in `tasks.md`. Read both to understand the whole pipeline.
 
 ## What this builds
 
