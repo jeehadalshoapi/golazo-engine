@@ -55,10 +55,14 @@ POST /render { template, data }
    → res.send(image/png)
 ```
 
-- **`src/templates.js`** — brand constants (`C`, `W=1080`, `H=1080`, `esc`), text helpers
-  (`charW`/`strW`/`wrapLines`/`arText`/`arBox`/`arBlock`), ported frame functions, the
-  `TEMPLATES` registry, and `buildSvg`. Exports `{ buildSvg, TEMPLATES, C, W, H }`. If it
-  passes ~400 lines, split into `src/svg-helpers.js` + `src/news-templates.js`, keeping
+- **`src/templates.js`** — brand constants (`C`, `W=1080`, `H=1080`, `esc`, `has`), text helpers
+  (`charW`/`strW`/`wrapLines`/`arText`/`arBox`/`arBlock`), the `vstack` body-layout helper,
+  ported frame functions, the `TEMPLATES` registry, and `buildSvg`. Two behaviors to know before
+  editing a template body: `arText` **auto-shrinks** the font (1px steps, down to `minSize`) until
+  the wrapped block fits its box, and `vstack(top, bottom, blocks)` vertically centers a list of
+  body blocks — pass each optional block as `has(field) ? {...} : null` so missing fields recenter
+  the rest instead of leaving a hole or a dangling label. Exports `{ buildSvg, TEMPLATES, C, W, H }`.
+  If it passes ~400 lines, split into `src/svg-helpers.js` + `src/news-templates.js`, keeping
   `buildSvg` as the single entry.
 - **`src/render.js`** — only the resvg wrapper. Fonts referenced by **absolute path**
   (`path.join(__dirname, '..', 'fonts')`), `loadSystemFonts: false`, `defaultFontFamily: 'Cairo'`.
@@ -82,7 +86,7 @@ HYBRID/DATA studio templates, and TikTok remain **deferred — do not build them
 | POST | `/render` | `{ template, data }` | `image/png` binary (Telegram path) |
 | POST | `/render-url` | `{ template, data }` | `{ id, url }` — hosts the PNG in a 6h in-memory cache (Buffer needs a URL, not binary) |
 | GET | `/img/:id.png` | — | `image/png` (serves a hosted render; **public** — the id is the secret) |
-| POST | `/render-roundup` | `{ cover?, items:[{template,data}] }` | `{ count, urls }` — renders cover + each card, returns the ordered hosted-URL list (daily carousel) |
+| POST | `/render-roundup` | `{ cover?, items:[{template,data}] }` | `{ count, urls }` — renders `cover` (prepended) + each card, returns the ordered hosted-URL list (daily carousel). Empty list → 400; >12 items → 400 |
 
 Errors use shape `{ error, detail }`. Unknown template → 400 with `available:[...]`.
 If env `RENDER_TOKEN` is set, `/render`, `/render-url`, `/render-roundup` require header
@@ -94,7 +98,7 @@ The hosted-image cache means the service is **no longer fully stateless** (per-i
 ```bash
 npm install            # express + @resvg/resvg-js
 npm start              # node server.js — listens on PORT (default 3000)
-node test_cards.js     # renders one sample PNG per template to ./out/card_*.png — open and eyeball
+node test_cards.js     # (or: npm run test:cards) renders one sample PNG per template to ./out/card_*.png — open and eyeball
 node test_cards.js DIR # optional: write the samples to DIR instead of ./out
 
 # smoke test a running server
@@ -127,6 +131,10 @@ routing, 9 PM roundup, caps).
 (architecture/decisions) → `rules.md` (hard rules) → `design.md` (exact algorithms + template
 bodies + n8n spec; **§9 = the new-features design, §9.3 = AS BUILT**). `golazo_studio.html` is the
 **visual source of truth** for frame/layout. `HOWTO-CLAUDE-CODE.md` is the human operator's guide.
+
+Note: `golazo-logo.js` is an auto-generated base64 data URI of the logo for the **Studio HTML only**;
+the runtime service does **not** import it — `src/templates.js` reads `golazo-logo.png` directly. Don't
+wire `golazo-logo.js` into the service.
 
 ## Security note
 

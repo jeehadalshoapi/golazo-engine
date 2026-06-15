@@ -173,7 +173,7 @@ function frame(d){
   <g transform="translate(58,1052) rotate(-90)"><rect x="0" y="-30" width="330" height="60" fill="${C.navy}" transform="skewX(-12)"/><text x="165" y="10" text-anchor="middle" font-family="Barlow Condensed" font-weight="900" font-style="italic" font-size="40" fill="${C.yellow}" transform="skewX(-12)" letter-spacing="1">${esc(d.hashtag)}</text></g>
   ${topSlot(d)}
   <line x1="360" y1="978" x2="720" y2="978" stroke="${C.yellow}" stroke-width="4"/>
-  <text x="540" y="1016" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="28" fill="${C.navy}">الكرة بالأرقام  ·  @golazo.arabic</text>`;
+  <text x="540" y="1016" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="28" fill="${C.navy}">الكرة بالأرقام  ·  @golazo.arabia</text>`;
 }
 
 /* Vertically center a list of body blocks within the band [top, bottom].
@@ -195,10 +195,11 @@ const TEMPLATES = {
     name: 'خبر عاجل',
     fields: ['time', 'headline', 'details', 'source'],
     content: d => `
+    ${d.roundup ? '' : `
     <rect x="380" y="160" width="320" height="74" rx="10" fill="${C.red}"/>
     <circle cx="430" cy="197" r="8" fill="#fff"/>
     <text x="555" y="210" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="40" fill="#fff">خبر عاجل</text>
-    ${has(d.time) ? `<text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>` : ''}
+    ${has(d.time) ? `<text x="1000" y="210" text-anchor="end" font-family="Cairo" font-weight="700" font-size="28" fill="${C.navy}">${esc(d.time)}</text>` : ''}`}
     ${vstack(258, 950, [
       { h: 300, render: y => arBox(90, y, 900, 300, d.headline, 900, 74, C.navy) },
       has(d.details) ? { h: 250, gap: 10, render: y =>
@@ -274,13 +275,11 @@ const TEMPLATES = {
   // output — built by the roundup workflow as the first slide of the daily carousel.
   cover: {
     name: 'غلاف الملخص',
-    fields: ['title', 'date', 'count'],
+    fields: ['title'],
     content: d => `
     ${vstack(280, 830, [
       { h: 180, render: y => arBox(90, y, 900, 180, d.title || 'أبرز أخبار اليوم', 900, 86, C.navy) },
-      has(d.date) ? { h: 56, gap: 18, render: y => arBox(90, y, 900, 56, d.date, 700, 40, '#13350c') } : null,
       { h: 6, gap: 26, render: y => `<rect x="360" y="${y.toFixed(0)}" width="360" height="6" fill="${C.yellow}"/>` },
-      has(d.count) ? { h: 64, gap: 26, render: y => arBox(90, y, 900, 64, d.count, 800, 48, C.navy) } : null,
       { h: 52, gap: 44, render: y => arBox(90, y, 900, 52, 'اسحب للمزيد ←', 800, 34, '#13350c') },
     ])}`
   }

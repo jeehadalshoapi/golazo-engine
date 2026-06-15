@@ -104,7 +104,10 @@ app.post('/render-roundup', (req, res) => {
     sweep();
     const urls = [];
     for (const it of items) {
-      const r = renderToPng(it || {});
+      // Mark every roundup card so templates can hide single-post-only chrome
+      // (e.g. the breaking "خبر عاجل" badge + time, which shouldn't appear in a carousel).
+      const data = Object.assign({}, it && it.data, { roundup: true });
+      const r = renderToPng({ template: it && it.template, data });
       if (r.error) return res.status(400).json({ error: 'invalid item', detail: r.body, template: it && it.template });
       const id = crypto.randomBytes(16).toString('hex');
       IMG_STORE.set(id, { png: r.png, exp: Date.now() + IMG_TTL_MS });
