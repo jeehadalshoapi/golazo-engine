@@ -96,7 +96,8 @@ Full build spec (endpoints, schedules, filter rules, payload mapping) is in **`M
 - [ ] n8n: **post-match carousel** `result→matchstats→ratings` at full-time — Telegram approval.
 - [ ] n8n: end-of-day **results** carousel — Telegram approval.
 - [ ] n8n: **cup structure** — `group` (per group) / `knockout` (per round) carousels for UCL/World Cup.
-- [ ] n8n: base64-encode team logos before render (resvg won't fetch URL crests).
+- [x] Team logos: render service fetches + embeds api-football logo URLs server-side
+      (`src/logos.js`, cached); n8n just passes the URL. Shown on fixtures/results rows + prematch/result crests.
 - [ ] Leagues: Roshn + EPL/La Liga/Serie A/Bundesliga/Ligue 1 (+ all matches: UCL + World Cup).
 
 ## 🕓 Deferred (separate later projects)

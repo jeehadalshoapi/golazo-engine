@@ -21,6 +21,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { buildSvg, TEMPLATES } = require('./src/templates');
 const { svgToPng } = require('./src/render');
+const { collectLogoUrls, resolveLogos } = require('./src/logos');
 
 const app = express();
 app.use(express.json({ limit: '256kb' }));
@@ -42,11 +43,14 @@ function tokenOk(req) {
   return !RENDER_TOKEN || req.get('x-golazo-token') === RENDER_TOKEN;
 }
 // Validate + render to a PNG buffer. Returns { png } or { error, status, body }.
-function renderToPng(body) {
+// Async because team/competition logos referenced by URL are fetched + embedded
+// (resvg can't fetch remote images); logos.js caches them so it's one fetch ever.
+async function renderToPng(body) {
   const { template, data } = body || {};
   if (!template || !TEMPLATES[template]) {
     return { error: true, status: 400, body: { error: 'invalid template', available: Object.keys(TEMPLATES) } };
   }
+  await resolveLogos(collectLogoUrls(data));
   return { png: svgToPng(buildSvg(template, data)) };
 }
 function baseUrl(req) {
@@ -60,10 +64,10 @@ app.get('/health', (req, res) => {
 });
 
 // Binary PNG — used by the Telegram "Send Photo" (binary) path.
-app.post('/render', (req, res) => {
+app.post('/render', async (req, res) => {
   try {
     if (!tokenOk(req)) return res.status(401).json({ error: 'unauthorized' });
-    const r = renderToPng(req.body);
+    const r = await renderToPng(req.body);
     if (r.error) return res.status(r.status).json(r.body);
     res.set('Content-Type', 'image/png');
     return res.send(r.png);
@@ -74,10 +78,10 @@ app.post('/render', (req, res) => {
 });
 
 // Hosted PNG — renders, stores, returns a public URL (for Buffer / URL-based consumers).
-app.post('/render-url', (req, res) => {
+app.post('/render-url', async (req, res) => {
   try {
     if (!tokenOk(req)) return res.status(401).json({ error: 'unauthorized' });
-    const r = renderToPng(req.body);
+    const r = await renderToPng(req.body);
     if (r.error) return res.status(r.status).json(r.body);
     sweep();
     const id = crypto.randomBytes(16).toString('hex');
@@ -93,7 +97,7 @@ app.post('/render-url', (req, res) => {
 // Roundup — renders a cover + N news cards, hosts each, returns the ordered URL list.
 // Body: { cover?: {...}, items: [{template,data}, ...] }. `cover` (if present) is
 // prepended as a `cover` template slide. Used by the daily-roundup carousel workflow.
-app.post('/render-roundup', (req, res) => {
+app.post('/render-roundup', async (req, res) => {
   try {
     if (!tokenOk(req)) return res.status(401).json({ error: 'unauthorized' });
     const body = req.body || {};
@@ -107,7 +111,7 @@ app.post('/render-roundup', (req, res) => {
       // Mark every roundup card so templates can hide single-post-only chrome
       // (e.g. the breaking "خبر عاجل" badge + time, which shouldn't appear in a carousel).
       const data = Object.assign({}, it && it.data, { roundup: true });
-      const r = renderToPng({ template: it && it.template, data });
+      const r = await renderToPng({ template: it && it.template, data });
       if (r.error) return res.status(400).json({ error: 'invalid item', detail: r.body, template: it && it.template });
       const id = crypto.randomBytes(16).toString('hex');
       IMG_STORE.set(id, { png: r.png, exp: Date.now() + IMG_TTL_MS });

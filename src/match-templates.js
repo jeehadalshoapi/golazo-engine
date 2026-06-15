@@ -8,7 +8,7 @@
  *   - Cups (UCL / World Cup) → `group` tables + `knockout` pairings; ALL matches
  *     posted (every cup match is important). See MATCH-pipeline.md.
  */
-const { C, esc, has, arBox, arBlock, strW, blockTitle, crest, cells, listRows, tableRows } = require('./svg-helpers');
+const { C, esc, has, arBox, arBlock, strW, blockTitle, crest, rowLogo, cells, listRows, tableRows } = require('./svg-helpers');
 
 module.exports = {
   // League table (already ordered top→down; rank is derived from row order).
@@ -182,7 +182,7 @@ module.exports = {
     }
   },
 
-  // Today's fixtures list. list: "home | away | league | time" per line.
+  // Today's fixtures list. list: "home | away | league | time | homeLogo? | awayLogo?" per line.
   fixtures: {
     name: 'مباريات اليوم',
     fields: ['date', 'comp', 'list'],
@@ -190,14 +190,18 @@ module.exports = {
       const rows = listRows(d.list, 12);
       const top = 330, bottom = 930, gap = Math.min(60, (bottom - top) / Math.max(rows.length, 1));
       const fs = Math.max(20, Math.min(28, Math.floor(gap * 0.5)));
+      const lr = Math.min(18, Math.floor(gap * 0.34)); // logo radius
       let body = '';
       rows.forEach((r, i) => {
-        const p = cells(r); const home = p[0] || '', away = p[1] || '', league = p[2] || '', time = p[3] || '';
+        const p = cells(r);
+        const home = p[0] || '', away = p[1] || '', league = p[2] || '', time = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
         body += `<text x="95" y="${tb}" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(time)}</text>`;
-        body += arBox(555, cy - gap / 2, 270, gap, home, 800, fs, C.navy);
+        body += rowLogo(752, cy, homeLogo, lr);                    // home badge (right, toward league)
+        body += arBox(560, cy - gap / 2, 170, gap, home, 800, fs, C.navy);
         body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}" opacity="0.5">×</text>`;
-        body += arBox(255, cy - gap / 2, 270, gap, away, 800, fs, C.navy);
+        body += arBox(350, cy - gap / 2, 170, gap, away, 800, fs, C.navy);
+        body += rowLogo(328, cy, awayLogo, lr);                    // away badge (left, toward time)
         if (league) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(league)}</text>`;
         if (i < rows.length - 1) body += `<line x1="95" y1="${(y + gap).toFixed(0)}" x2="985" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
       });
@@ -209,7 +213,7 @@ module.exports = {
     }
   },
 
-  // Today's results list. list: "home | away | score | note" per line.
+  // Today's results list. list: "home | away | score | note | homeLogo? | awayLogo?" per line.
   results: {
     name: 'نتائج اليوم',
     fields: ['date', 'comp', 'list'],
@@ -217,9 +221,11 @@ module.exports = {
       const rows = listRows(d.list, 10);
       const top = 330, bottom = 930, gap = Math.min(64, (bottom - top) / Math.max(rows.length, 1));
       const fs = Math.max(20, Math.min(28, Math.floor(gap * 0.46)));
+      const lr = Math.min(18, Math.floor(gap * 0.32)); // logo radius
       let body = '';
       rows.forEach((r, i) => {
-        const p = cells(r); const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '';
+        const p = cells(r);
+        const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
         // Free-plan: score may be missing (not played / data gap) → show a dash, no chip.
         const mid = has(score) ? score : '—';
@@ -228,8 +234,10 @@ module.exports = {
           body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.30).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.6).toFixed(0)}" rx="7" fill="${C.yellow}"/>`;
         }
         body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(mid)}</text>`;
-        body += arBox(560, cy - gap / 2, 280, gap, home, 800, fs, C.navy);
-        body += arBox(240, cy - gap / 2, 280, gap, away, 800, fs, C.navy);
+        body += rowLogo(792, cy, homeLogo, lr);                    // home badge (right)
+        body += arBox(575, cy - gap / 2, 190, gap, home, 800, fs, C.navy);
+        body += arBox(315, cy - gap / 2, 190, gap, away, 800, fs, C.navy);
+        body += rowLogo(288, cy, awayLogo, lr);                    // away badge (left)
         if (note) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(note)}</text>`;
         if (i < rows.length - 1) body += `<line x1="95" y1="${(y + gap).toFixed(0)}" x2="985" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
       });

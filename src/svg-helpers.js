@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { logoUri } = require('./logos');
 
 /* ===== brand constants ===== */
 const C = { navy: '#0D3D07', yellow: '#7DDB5B', red: '#E63946', paper: '#FFFFFF' };
@@ -206,13 +207,22 @@ function blockTitle(t1, t2) {
   <text x="705" y="300" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.yellow}">${esc(t2)}</text>`;
 }
 
-// Team crest centered at (cx,cy). resvg renders ONLY base64 data: images — it will
-// NOT fetch http(s) logo URLs — so n8n must pass logos as data: URIs; anything else
-// falls back to the dashed-shield placeholder. (Same constraint as the brand logo.)
+// Team crest centered at (cx,cy). The logo is embedded by the server (logos.js)
+// before render — logoUri() returns the cached data: URI (or '' if unavailable),
+// in which case we draw the dashed-shield placeholder.
 function crest(cx, cy, logo) {
-  if (logo && String(logo).trim().startsWith('data:'))
-    return `<image href="${esc(logo)}" x="${cx - 72}" y="${cy - 72}" width="144" height="144" preserveAspectRatio="xMidYMid meet"/>`;
+  const u = logoUri(logo);
+  if (u) return `<image href="${esc(u)}" x="${cx - 72}" y="${cy - 72}" width="144" height="144" preserveAspectRatio="xMidYMid meet"/>`;
   return `<g><path d="M${cx},${cy - 74} L${cx + 64},${cy - 50} L${cx + 64},${cy + 16} Q${cx + 64},${cy + 58} ${cx},${cy + 82} Q${cx - 64},${cy + 58} ${cx - 64},${cy + 16} L${cx - 64},${cy - 50} Z" fill="none" stroke="${C.navy}" stroke-width="4" stroke-dasharray="8 8"/><text x="${cx}" y="${cy + 8}" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="24" fill="${C.navy}">شعار</text></g>`;
+}
+
+// Small inline team badge for list rows (fixtures/results), centered at (cx,cy),
+// radius r. Returns '' when the logo isn't available — the row just omits it
+// (cleaner than a broken/empty box).
+function rowLogo(cx, cy, logo, r = 16) {
+  const u = logoUri(logo);
+  if (!u) return '';
+  return `<image href="${esc(u)}" x="${(cx - r).toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${(2 * r).toFixed(0)}" height="${(2 * r).toFixed(0)}" preserveAspectRatio="xMidYMid meet"/>`;
 }
 
 // A standings/group table column layout shared by `standing` and `group`.
@@ -245,5 +255,5 @@ function tableRows(rows, top, bottom, opts = {}) {
 module.exports = {
   C, W, H, esc, has,
   charW, strW, wrapLines, arText, arBox, arBlock, vstack,
-  frame, blockTitle, crest, cells, listRows, tableRows,
+  frame, blockTitle, crest, rowLogo, cells, listRows, tableRows,
 };

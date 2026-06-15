@@ -171,11 +171,13 @@ fields back to the api-football source.
 | Events (goals/cards) | `GET /fixtures/events?fixture={fixtureId}` |
 | Lineups (optional) | `GET /fixtures/lineups?fixture={fixtureId}` |
 
-> **Logos:** api-football returns logo **URLs**, but `@resvg/resvg-js` does **not** fetch
-> remote images — `crest()` only embeds `data:` URIs. So for `prematch`/`result`, n8n must
-> **download each logo and base64-encode it** (HTTP Request node → "Move Binary Data"/Code node
-> → `data:image/png;base64,...`) before putting it in `homeLogo`/`awayLogo`. If you skip this,
-> the card still renders fine with the dashed-shield placeholder.
+> **Logos (handled by the render service — n8n just passes URLs):** api-football returns logo
+> **URLs** and `@resvg/resvg-js` can't fetch remote images, **but the render service now fetches +
+> embeds them itself** (`src/logos.js`, cached in-memory per URL — one fetch per team ever). So
+> **n8n simply passes the api-football logo URL** (`f.teams.home.logo`, etc.) — no base64 step
+> needed. Used by `prematch`/`result` (`crest`, big) and by `fixtures`/`results` rows (small badge,
+> as extra `… | homeLogo | awayLogo` cells). A missing/unreachable logo → dashed-shield (crest) or
+> omitted (rows). A `data:` URI still works too if you ever pre-embed one.
 
 ---
 
@@ -190,7 +192,8 @@ newline-delimited strings** — build them in a Code node. Field names below are
 { template:'fixtures', data:{
   date: 'الجمعة 12 أغسطس 2026',
   comp: league.name,
-  list: rows.map(f => `${f.home} | ${f.away} | ${league.key} | ${time}`).join('\n')  // ≤12 rows
+  // home | away | league | time | homeLogo | awayLogo   (logos = api-football URLs, optional)
+  list: rows.map(f => `${f.home} | ${f.away} | ${league.key} | ${time} | ${f.homeLogo} | ${f.awayLogo}`).join('\n')  // ≤12 rows
 }}
 ```
 
@@ -224,7 +227,7 @@ newline-delimited strings** — build them in a Code node. Field names below are
 ```
 { template:'prematch', data:{
   comp, round, home, away,
-  homeLogo: dataUri||'', awayLogo: dataUri||'',   // base64 data: URI or empty
+  homeLogo: f.teams.home.logo, awayLogo: f.teams.away.logo,   // plain api-football URL; service embeds it
   date, time, stadium
 }}
 ```
@@ -259,7 +262,8 @@ newline-delimited strings** — build them in a Code node. Field names below are
 ```
 { template:'results', data:{
   date, comp: league.name,
-  list: rows.map(f => `${f.home} | ${f.away} | ${f.hs} - ${f.as} | ${league.key}`).join('\n')  // ≤10
+  // home | away | score | note | homeLogo | awayLogo
+  list: rows.map(f => `${f.home} | ${f.away} | ${f.hs} - ${f.as} | ${league.key} | ${f.homeLogo} | ${f.awayLogo}`).join('\n')  // ≤10
 }}
 ```
 
@@ -304,7 +308,9 @@ newline-delimited strings** — build them in a Code node. Field names below are
 
 ## 9. Open items / revisit later
 
-- World Cup national-team logos (flags) — same data:-URI rule as club crests.
+- World Cup national-team logos (flags) — pass the api-football URL like club crests.
+- Logo cache is in-memory per process (cleared on redeploy, re-fetched on demand); fine at this
+  scale. Move to disk/object storage only if cold-start fetch latency becomes an issue.
 - `lineup` template (not built) if you want pre-match XI cards.
 - Logo base64 caching (one fetch/team/day) to avoid re-downloading crests.
 - Per-league season rollover automation for the `season` param.

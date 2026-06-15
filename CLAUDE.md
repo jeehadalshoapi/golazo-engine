@@ -98,9 +98,13 @@ fields are missing, so cards **degrade gracefully** (missing score → "—", em
 be just the `result` card). The HYBRID/DATA studio templates and TikTok remain **deferred — do not
 build them now**.
 
-**Team logos:** `crest()` (used by `prematch`/`result`) only embeds base64 `data:` URIs — resvg
-will NOT fetch http(s) logo URLs (same constraint as the brand logo). n8n must download + base64
-the api-football logo before passing `homeLogo`/`awayLogo`, else the dashed-shield placeholder shows.
+**Team logos:** resvg can't fetch remote images, so the server embeds them — `src/logos.js`
+fetches each api-football logo URL once, base64-caches it in-memory, and `server.js` calls
+`resolveLogos(collectLogoUrls(data))` before every render (the handlers are async for this).
+Templates look up the cached data: URI synchronously via `crest()` (big, `prematch`/`result`) and
+`rowLogo()` (small badges in `fixtures`/`results` rows — passed as extra `… | homeLogo | awayLogo`
+list cells). **n8n just passes the plain logo URL** — no base64 step. Missing/unreachable → dashed
+shield (crest) or omitted (rows).
 
 ## API (all in `server.js`)
 
