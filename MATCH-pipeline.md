@@ -17,9 +17,15 @@ The NEWS pipeline (RSS → DeepSeek → render → Buffer) is unchanged and runs
 | 2 | **Pre-match** | ~3h before kickoff, per match | `prematch` | single | none |
 | 3 | **Post-match carousel** | at full-time, per match | `result` → `matchstats` → `ratings` | carousel | inline Telegram |
 | 4 | **Today's results** | ~23:30 daily | `results` (1 card/league) | carousel | inline Telegram |
+| 5 | **Cup structure** | group/draw day | `group` (1/group) or `knockout` (1/round) | carousel | none |
 
-Posts 2–3 are **per match** and are the volume risk → gated by the **top-5 filter** (§3).
-Posts 1 and 4 are **once a day** (one slide per league) → not gated, but only cover our leagues (§2).
+**Two kinds of competition, two filtering rules:**
+- **Leagues** (Roshn + Top-5 European): posts 2–3 are **per match** and are the volume risk →
+  gated by the **top-5 filter** (§3). Posts 1/4 cover all our-league matches that day.
+- **Cups** (UCL, World Cup): **every match is important → post ALL of them, no top-5 gate.**
+  Their structure is shown with `group` (group stage) and `knockout` (the draw/bracket per
+  round) instead of a single league table. Pre/post cards (`prematch`/`result`/`matchstats`/
+  `ratings`) work identically for cup matches.
 
 > Carousels go to FB/IG with all slides; **X is capped to 4 images** (same rule the roundup
 > already uses). Order the post-match carousel `result, matchstats, ratings` so the 3 best
@@ -43,15 +49,16 @@ const LEAGUES = [
 ```
 > Verify each `id` against your api-football plan and the **current season** (`season` param) —
 > IDs are stable but the active season rolls over. `domestic:false` competitions (UCL, World Cup)
-> have no single league table, so the top-5 filter treats them specially (§3).
+> have no single league table → they skip the top-5 filter (post all matches) and use the
+> `group`/`knockout` cards for structure (§3, §3.1).
 
 ---
 
-## 3. The top-5 filter (volume control)
+## 3. The top-5 filter (volume control) — leagues only
 
-> Decision (locked): **post a match's pre/post cards if EITHER team is currently in the top 5
-> of its domestic league.** This keeps "a big club vs anyone" while dropping mid/low-table-only
-> fixtures.
+> Decision (locked): for **league** fixtures, **post a match's pre/post cards if EITHER team is
+> currently in the top 5 of its league.** This keeps "a big club vs anyone" while dropping
+> mid/low-table-only fixtures. **Cup (UCL / World Cup) fixtures are NOT filtered — post all.**
 
 **Build a daily `TOP5` set** (one node, runs before fixtures are processed):
 1. For each `domestic:true` league, call `GET /standings?league={id}&season={S}`.
@@ -60,13 +67,19 @@ const LEAGUES = [
    `standing`/`results` cards (you already pulled them).
 
 **Filter a fixture** `f` (home `f.teams.home.id`, away `f.teams.away.id`):
-- Domestic league fixture → keep if `TOP5.has(home) || TOP5.has(away)`.
-- UCL / World Cup fixture → keep if `TOP5.has(home) || TOP5.has(away)` **using the same
-  domestic TOP5 set** (i.e. a club that's top-5 at home is "big" in Europe too). Knockout/national
-  teams that aren't in any domestic top-5 are dropped at launch — revisit later if you want full
-  UCL/WC coverage.
+- **League fixture** (`domestic:true`) → keep if `TOP5.has(home) || TOP5.has(away)`.
+- **Cup fixture** (UCL / World Cup, `domestic:false`) → **always keep** (no top-5 gate). Volume
+  is naturally limited (cups have far fewer matches than 6 league seasons combined).
 
 Everything below assumes a fixture passed this filter.
+
+### 3.1 Cup structure cards (instead of a league table)
+Cups have no single standings table, so represent their state with:
+- **Group stage** → one `group` card per group (`GET /standings?league={id}&season={S}` returns
+  the groups; the top 2 of each are auto-tinted on the card). Post as a carousel on matchday.
+- **Knockout phase** → one `knockout` card per round (Round of 16 / QF / SF / Final). Build the
+  pairings from `GET /fixtures?league={id}&season={S}&round={roundName}`. Post on draw day and
+  again with results filled in.
 
 ---
 
@@ -111,6 +124,24 @@ newline-delimited strings** — build them in a Code node. Field names below are
   comp: league.name,
   rows: top.map(t => `${t.team} | ${t.played} | ${signed(t.goalsDiff)} | ${t.points}`).join('\n') // ≤8, ordered
 }}   // rank is auto from row order — do NOT include a position column
+```
+
+### 5.2b `group` — cup group-stage table (1 card per group)
+```
+{ template:'group', data:{
+  comp: 'دوري أبطال أوروبا',
+  group: 'المجموعة A',
+  rows: top.map(t => `${t.team} | ${t.played} | ${signed(t.goalsDiff)} | ${t.points}`).join('\n') // ≤6, ordered; top-2 auto-tinted
+}}
+```
+
+### 5.2c `knockout` — cup draw / bracket (1 card per round)
+```
+{ template:'knockout', data:{
+  comp: 'دوري أبطال أوروبا',
+  round: 'ربع النهائي',
+  list: pairs.map(p => `${p.home} | ${p.away}${p.score ? ' | ' + p.score : ''}`).join('\n')   // ≤8; score optional → shows "ضد"
+}}
 ```
 
 ### 5.3 `prematch` — per match
@@ -197,7 +228,7 @@ newline-delimited strings** — build them in a Code node. Field names below are
 
 ## 9. Open items / revisit later
 
-- Full UCL/World Cup coverage (currently gated by domestic top-5).
+- World Cup national-team logos (flags) — same data:-URI rule as club crests.
 - `lineup` template (not built) if you want pre-match XI cards.
 - Logo base64 caching (one fetch/team/day) to avoid re-downloading crests.
 - Per-league season rollover automation for the `season` param.

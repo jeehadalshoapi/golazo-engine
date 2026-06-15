@@ -55,18 +55,19 @@ POST /render { template, data }
    → res.send(image/png)
 ```
 
-- **`src/templates.js`** — brand constants (`C`, `W=1080`, `H=1080`, `esc`, `has`), text helpers
-  (`charW`/`strW`/`wrapLines`/`arText`/`arBox`/`arBlock`), the `vstack` body-layout helper,
-  ported frame functions, the `TEMPLATES` registry, and `buildSvg`. Two behaviors to know before
-  editing a template body: `arText` **auto-shrinks** the font (1px steps, down to `minSize`) until
-  the wrapped block fits its box, and `vstack(top, bottom, blocks)` vertically centers a list of
-  body blocks — pass each optional block as `has(field) ? {...} : null` so missing fields recenter
-  the rest instead of leaving a hole or a dangling label. The MATCH templates add helpers
-  `blockTitle` (two-tone heading), `crest` (team logo / dashed placeholder), and `cells`/`listRows`
-  (split the pipe+newline list strings the table/list cards take). Exports `{ buildSvg, TEMPLATES, C, W, H }`.
-  This file now **exceeds the ~400-line guideline** (11 templates) — splitting into
-  `src/svg-helpers.js` + `src/news-templates.js` + `src/match-templates.js` (keeping `buildSvg`
-  as the single entry) is the recommended next refactor.
+- **`src/templates.js`** — thin entry point: merges `NEWS` + `MATCH` into the `TEMPLATES`
+  registry and defines `buildSvg`. Exports `{ buildSvg, TEMPLATES, C, W, H }`. The actual code
+  lives in three split files:
+  - **`src/svg-helpers.js`** — the shared engine: brand constants (`C`, `W=1080`, `H=1080`,
+    `esc`, `has`), text helpers (`charW`/`strW`/`wrapLines`/`arText`/`arBox`/`arBlock`), `vstack`,
+    the ported `frame`, and the match helpers (`blockTitle`, `crest`, `cells`/`listRows`,
+    `tableRows`). Two behaviors to know before editing a body: `arText` **auto-shrinks** the font
+    (1px steps, down to `minSize`) until the wrapped block fits its box; `vstack(top, bottom, blocks)`
+    vertically centers blocks — pass each optional one as `has(field) ? {...} : null` so missing
+    fields recenter instead of leaving a hole. `tableRows` is the shared standings/group table body.
+  - **`src/news-templates.js`** — `breaking`/`confirmed`/`rumors`/`quote` + the roundup `cover`.
+  - **`src/match-templates.js`** — `standing`/`group`/`knockout`/`prematch`/`result`/`matchstats`/
+    `ratings`/`fixtures`/`results`.
 - **`src/render.js`** — only the resvg wrapper. Fonts referenced by **absolute path**
   (`path.join(__dirname, '..', 'fonts')`), `loadSystemFonts: false`, `defaultFontFamily: 'Cairo'`.
 - **`server.js`** — HTTP only (routing, validation, error mapping). `express.json({limit:'256kb'})`.
@@ -81,10 +82,13 @@ fifth `cover` template (in `TEMPLATES`, adapted from the studio `brand` template
 Railway, table `roundup_news`) is the state store for accumulating roundup items + dedup.
 
 The **MATCH pipeline** templates are now **built in the renderer** (not deferred): `standing`,
-`prematch`, `result`, `matchstats`, `ratings`, `fixtures`, `results` — all native-SVG ports of the
-Studio bodies (the Studio versions use `<foreignObject>` and must NOT be copied verbatim). Their
-**n8n orchestration is specced but not built** — see `MATCH-pipeline.md` (api-football endpoints,
-schedules, the top-5 filter, payload mapping). The HYBRID/DATA studio templates and TikTok remain
+`group`, `knockout`, `prematch`, `result`, `matchstats`, `ratings`, `fixtures`, `results` — all
+native-SVG ports of the Studio bodies (the Studio versions use `<foreignObject>` and must NOT be
+copied verbatim). Two competition kinds: **leagues** (Roshn + Top-5 European) use `standing` and
+gate per-match cards by a top-5 filter; **cups** (UCL, World Cup) post **all** matches and show
+structure via `group` (group stage) + `knockout` (the draw/bracket per round). Their **n8n
+orchestration is specced but not built** — see `MATCH-pipeline.md` (api-football endpoints,
+schedules, the filter rules, payload mapping). The HYBRID/DATA studio templates and TikTok remain
 **deferred — do not build them now**.
 
 **Team logos:** `crest()` (used by `prematch`/`result`) only embeds base64 `data:` URIs — resvg
