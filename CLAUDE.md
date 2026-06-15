@@ -153,8 +153,9 @@ and the full frame (decorations + hashtag chip + footer `الكرة بالأرق
 **To understand current state first:** `PROJECT-SUMMARY.md` (live pipeline diagram + build log +
 every problem/fix) and `tasks.md` (what's done / what's remaining + the live n8n architecture).
 **Strategy/decisions:** `golazo_posting_strategy.md` (the locked posting strategy — importance
-routing, 9 PM roundup, caps). **MATCH pipeline:** `MATCH-pipeline.md` (api-football → render →
-Buffer build spec — leagues, top-5 filter, schedules, per-template payload mapping).
+routing, 9 PM roundup, caps). **MATCH pipeline:** `MATCH-pipeline.md` (design spec — leagues,
+top-5 filter, golazo-server data layer, payload mapping) + `MATCH-pipeline-build.md` (the
+click-by-click n8n build for every MATCH workflow, preview phase).
 
 **For the renderer internals:** `agent.md` (role + the foreignObject rule) → `planning.md`
 (architecture/decisions) → `rules.md` (hard rules) → `design.md` (exact algorithms + template
