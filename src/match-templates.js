@@ -148,7 +148,7 @@ module.exports = {
     ${arBox(80, 250, 360, 60, d.home, 900, 40, C.navy)}
     ${arBox(440, 250, 200, 60, d.score, 900, 46, C.navy)}
     ${arBox(640, 250, 360, 60, d.away, 900, 40, C.navy)}
-    ${body}
+    ${rows.length ? body : arBox(80, 372, 920, 460, 'الإحصائيات غير متوفرة', 700, 38, '#7a8a74')}
     <rect x="335" y="905" width="22" height="22" fill="${C.navy}"/>${arBox(360, 899, 150, 34, d.home, 700, 24, C.navy)}
     <rect x="560" y="905" width="22" height="22" fill="${C.yellow}"/>${arBox(585, 899, 150, 34, d.away, 700, 24, C.navy)}`;
     }
@@ -178,7 +178,7 @@ module.exports = {
     <rect x="360" y="150" width="360" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(360, 150, 360, 72, 'تقييمات اللاعبين', 900, 34, C.yellow)}
     ${arBox(80, 232, 920, 46, d.team, 700, 30, '#13350c')}
-    ${body}`;
+    ${rows.length ? body : arBox(80, 360, 920, 440, 'التقييمات غير متوفرة', 700, 38, '#7a8a74')}`;
     }
   },
 
@@ -221,9 +221,13 @@ module.exports = {
       rows.forEach((r, i) => {
         const p = cells(r); const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
-        const sw = Math.max(70, strW(score, fs) + 28);
-        body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.30).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.6).toFixed(0)}" rx="7" fill="${C.yellow}"/>`;
-        body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(score)}</text>`;
+        // Free-plan: score may be missing (not played / data gap) → show a dash, no chip.
+        const mid = has(score) ? score : '—';
+        if (has(score)) {
+          const sw = Math.max(70, strW(score, fs) + 28);
+          body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.30).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.6).toFixed(0)}" rx="7" fill="${C.yellow}"/>`;
+        }
+        body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(mid)}</text>`;
         body += arBox(560, cy - gap / 2, 280, gap, home, 800, fs, C.navy);
         body += arBox(240, cy - gap / 2, 280, gap, away, 800, fs, C.navy);
         if (note) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(note)}</text>`;

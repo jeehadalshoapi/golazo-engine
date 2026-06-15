@@ -33,6 +33,51 @@ The NEWS pipeline (RSS → DeepSeek → render → Buffer) is unchanged and runs
 
 ---
 
+## 1.5 Data layer — store the API, then read the store
+
+The posting workflows do **NOT** call api-football live. A separate **sync workflow** pulls from
+api-football and **stores the JSON in Postgres** (same Railway DB as `roundup_news`); the posting
+workflows then **read from Postgres**. Why:
+- **Free-plan request cap** — calling the API once per post would blow the daily limit fast. One
+  sync run/period amortizes it.
+- **Decoupling** — rendering/posting never fails because the API is rate-limited or slow.
+
+**Suggested table** (one row per api entity, JSON payload + freshness):
+```sql
+CREATE TABLE IF NOT EXISTS api_cache (
+  kind     text NOT NULL,          -- 'standings' | 'fixtures' | 'statistics' | 'players' | 'events'
+  league   int,                    -- league id (null where N/A)
+  ref      text NOT NULL,          -- date (YYYY-MM-DD) or fixtureId, as text
+  payload  jsonb NOT NULL,         -- the api-football `response` array
+  fetched_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (kind, league, ref)
+);
+```
+**Sync workflow** (cron, a few times/day): for each league call standings + today's fixtures;
+for finished fixtures call statistics/players/events → `INSERT ... ON CONFLICT (kind,league,ref)
+DO UPDATE SET payload=excluded.payload, fetched_at=now()`. The Node-3 "HTTP per league" step in
+each posting workflow becomes a **Postgres SELECT** from `api_cache` instead.
+
+## 1.6 Free-plan degradation (until Pro)
+
+On the **free plan** many fields are missing (statistics/players endpoints limited, some
+seasons/leagues unavailable, results delayed). The pipeline must **never post a broken card**:
+
+- **Renderer already degrades** — missing score → "—" (no chip); empty `matchstats`/`ratings` →
+  a muted "غير متوفرة" note; missing logos → dashed-shield; missing optional fields → omitted.
+- **Build carousel slides conditionally** — in the post-match workflow, add a slide **only if its
+  core data exists**: always `result` (score is enough); add `matchstats` only if the stats array
+  is non-empty; add `ratings` only if ≥1 player has a rating. On free plan a post-match carousel
+  may legitimately be **just the `result` card** — that's fine.
+- **Skip empty leagues/groups** — don't render a `fixtures`/`results`/`group` card with zero rows.
+
+> When you move to **Pro** (in a few days): nothing in the renderer changes. You just (a) raise the
+> sync frequency, (b) the conditional checks above start passing more often (stats/ratings appear),
+> and (c) you can widen `season`/league coverage. Keep the conditional-slide logic — it's also your
+> safety net for the odd missing match.
+
+---
+
 ## 2. Leagues config (api-football `league` IDs)
 
 ```
@@ -83,7 +128,10 @@ Cups have no single standings table, so represent their state with:
 
 ---
 
-## 4. api-football endpoints used
+## 4. api-football endpoints used (by the **sync workflow** → `api_cache`)
+
+These are called by the sync workflow (§1.5), not by the posting workflows. The posting workflows
+read the stored `payload` from `api_cache`.
 
 | Need | Endpoint |
 |------|----------|
