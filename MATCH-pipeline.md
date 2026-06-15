@@ -33,30 +33,32 @@ The NEWS pipeline (RSS → DeepSeek → render → Buffer) is unchanged and runs
 
 ---
 
-## 1.5 Data layer — store the API, then read the store
+## 1.5 Data layer — n8n reads the app's store (single source of truth)
 
-The posting workflows do **NOT** call api-football live. A separate **sync workflow** pulls from
-api-football and **stores the JSON in Postgres** (same Railway DB as `roundup_news`); the posting
-workflows then **read from Postgres**. Why:
-- **Free-plan request cap** — calling the API once per post would blow the daily limit fast. One
-  sync run/period amortizes it.
+**The app is the ONLY thing that talks to api-football.** It fetches and writes the data into a
+**shared Postgres** database. **n8n never calls api-football** — it reads the same tables with
+Postgres SELECT nodes. One ingestion path, one snapshot, no drift between app and workflow. Why:
+- **Single source of truth** — app and workflow always see identical data (same missing fields).
+- **Free-plan request cap** — only the app spends the API budget; n8n adds zero API calls.
 - **Decoupling** — rendering/posting never fails because the API is rate-limited or slow.
 
-**Suggested table** (one row per api entity, JSON payload + freshness):
+> There is **no n8n sync workflow** — the app already does ingestion. n8n is purely a
+> *reader → renderer → publisher*. Each posting workflow's data step is a **Postgres SELECT**
+> against the app's tables (see §1.5.1 for the schema this spec assumes).
+
+### 1.5.1 Schema the workflows read (TO CONFIRM with the app's actual tables)
+The SELECT examples below assume the app exposes data shaped roughly like this. **Replace with the
+app's real table/column names once confirmed** — the rest of the spec only depends on the *fields*,
+not the exact SQL.
 ```sql
-CREATE TABLE IF NOT EXISTS api_cache (
-  kind     text NOT NULL,          -- 'standings' | 'fixtures' | 'statistics' | 'players' | 'events'
-  league   int,                    -- league id (null where N/A)
-  ref      text NOT NULL,          -- date (YYYY-MM-DD) or fixtureId, as text
-  payload  jsonb NOT NULL,         -- the api-football `response` array
-  fetched_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (kind, league, ref)
-);
+-- whatever the app already writes; n8n only SELECTs. Example shape:
+-- fixtures(id, league_id, season, kickoff_utc, status, home_id, home_name,
+--          away_id, away_name, home_goals, away_goals, round, venue)
+-- standings(league_id, season, rank, team_id, team_name, played, goals_diff, points, group_name)
+-- statistics(fixture_id, type, home_value, away_value)
+-- player_ratings(fixture_id, team_id, player_name, rating)
+-- events(fixture_id, team_id, minute, type, detail, player_name)
 ```
-**Sync workflow** (cron, a few times/day): for each league call standings + today's fixtures;
-for finished fixtures call statistics/players/events → `INSERT ... ON CONFLICT (kind,league,ref)
-DO UPDATE SET payload=excluded.payload, fetched_at=now()`. The Node-3 "HTTP per league" step in
-each posting workflow becomes a **Postgres SELECT** from `api_cache` instead.
 
 ## 1.6 Free-plan degradation (until Pro)
 
@@ -128,10 +130,11 @@ Cups have no single standings table, so represent their state with:
 
 ---
 
-## 4. api-football endpoints used (by the **sync workflow** → `api_cache`)
+## 4. api-football endpoints (reference — **the app** calls these, not n8n)
 
-These are called by the sync workflow (§1.5), not by the posting workflows. The posting workflows
-read the stored `payload` from `api_cache`.
+For reference only: these are the endpoints the **app** uses to populate the shared store. n8n
+never calls them — it reads the resulting rows (§1.5). Listed so you can map each card's fields
+back to their api-football source.
 
 | Need | Endpoint |
 |------|----------|

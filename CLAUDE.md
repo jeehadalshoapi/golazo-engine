@@ -88,9 +88,9 @@ copied verbatim). Two competition kinds: **leagues** (Roshn + Top-5 European) us
 gate per-match cards by a top-5 filter; **cups** (UCL, World Cup) post **all** matches and show
 structure via `group` (group stage) + `knockout` (the draw/bracket per round). Their **n8n
 orchestration is specced but not built** — see `MATCH-pipeline.md` (api-football endpoints,
-schedules, the filter rules, payload mapping). A **sync workflow stores api-football JSON in
-Postgres (`api_cache`) and the posting workflows read the store** (not live calls) — this respects
-the **free-plan request cap** and decouples posting from API availability. On the free plan many
+schedules, the filter rules, payload mapping). **The app is the only caller of api-football** and
+writes to a **shared Postgres**; **n8n never calls the API — it reads the app's tables** (single
+source of truth, respects the free-plan request cap, decouples posting from API availability). On the free plan many
 fields are missing, so cards **degrade gracefully** (missing score → "—", empty stats/ratings →
 "غير متوفرة", missing logos → placeholder) and carousels **skip empty slides** (e.g. post-match may
 be just the `result` card). The HYBRID/DATA studio templates and TikTok remain **deferred — do not
