@@ -33,32 +33,51 @@ The NEWS pipeline (RSS → DeepSeek → render → Buffer) is unchanged and runs
 
 ---
 
-## 1.5 Data layer — n8n reads the app's store (single source of truth)
+## 1.5 Data layer — n8n reads via `golazo-server` (the same proxy the app uses)
 
-**The app is the ONLY thing that talks to api-football.** It fetches and writes the data into a
-**shared Postgres** database. **n8n never calls api-football** — it reads the same tables with
-Postgres SELECT nodes. One ingestion path, one snapshot, no drift between app and workflow. Why:
-- **Single source of truth** — app and workflow always see identical data (same missing fields).
-- **Free-plan request cap** — only the app spends the API budget; n8n adds zero API calls.
-- **Decoupling** — rendering/posting never fails because the API is rate-limited or slow.
+The api-football data is served by **`golazo-server`** (Project B): an Express **caching proxy**
+that fetches api-football, caches each response in **Redis** with per-endpoint TTLs, and returns
+the **api-football response body verbatim**. The mobile app reads from it; **n8n reads the exact
+same endpoints.** That is the single source of truth — app and workflow always see the identical
+(cached) snapshot.
 
-> There is **no n8n sync workflow** — the app already does ingestion. n8n is purely a
-> *reader → renderer → publisher*. Each posting workflow's data step is a **Postgres SELECT**
-> against the app's tables (see §1.5.1 for the schema this spec assumes).
+- **n8n never calls api-football and never touches Redis directly** — it makes plain HTTP GETs to
+  `golazo-server`, exactly like the app. (Source: `golazo-server/src/routes/*`, `README.md`.)
+- **Free-tier safe:** `golazo-server` caches every response, so n8n's reads mostly return
+  `X-Cache: HIT` and cost **zero** upstream quota. Only `golazo-server` ever spends the api-football
+  100 req/day budget — and only the app/server should hold the API key.
+- **No sync workflow, no cross-project DB connection.** Just point n8n at `golazo-server`'s public URL.
 
-### 1.5.1 Schema the workflows read (TO CONFIRM with the app's actual tables)
-The SELECT examples below assume the app exposes data shaped roughly like this. **Replace with the
-app's real table/column names once confirmed** — the rest of the spec only depends on the *fields*,
-not the exact SQL.
-```sql
--- whatever the app already writes; n8n only SELECTs. Example shape:
--- fixtures(id, league_id, season, kickoff_utc, status, home_id, home_name,
---          away_id, away_name, home_goals, away_goals, round, venue)
--- standings(league_id, season, rank, team_id, team_name, played, goals_diff, points, group_name)
--- statistics(fixture_id, type, home_value, away_value)
--- player_ratings(fixture_id, team_id, player_name, rating)
--- events(fixture_id, team_id, minute, type, detail, player_name)
-```
+**Topology (two Railway projects):**
+- **Project A** — n8n + the `roundup_news` Postgres. The MATCH workflows live in this **same n8n
+  dashboard** as the roundup workflow.
+- **Project B** — **`golazo-server`** (the caching proxy) + **Redis** (its cache, with volume).
+  The server fetches api-football on a cron and serves cached JSON. There is **no Postgres** here.
+
+**Base URL:** `https://golazo-server-production.up.railway.app` (Project B → `golazo-server` →
+Settings → Networking shows the exact domain; confirm with `GET /health` → `{ ok:true, redis:'connected' }`).
+No auth token today (per-IP rate-limit 120/min) — fine for n8n's low volume. n8n uses a plain
+**HTTP Request** node (no DB credential needed for reads).
+
+**Response shape:** every endpoint returns the api-football envelope verbatim
+`{ results, paging, response: [ ... ] }` → every Code/Set node reads **`$json.response`**.
+
+### 1.5.1 Card → `golazo-server` endpoint map
+| Card | Endpoint | Parse |
+|---|---|---|
+| `fixtures` (today) | `GET /fixtures/today` | **ALL** fixtures globally for today in ONE cached call → filter `response` by our league ids in a Code node (no per-league loop) |
+| `results` (today) | `GET /fixtures/today` | same bucket; keep finished (`fixture.status.short` ∈ FT/AET/PEN) |
+| `standing` | `GET /standings/:leagueId?season=` | `response[0].league.standings[0]` (rows) |
+| `group` | `GET /standings/:leagueId?season=` | `response[0].league.standings` = array of groups (one card each) |
+| `prematch` | `GET /fixtures/:id` | `response[0]` → teams / league / venue / date |
+| `result` | `GET /fixtures/:id` + `GET /fixtures/:id/events` | score from `goals`; events grouped per `team.id` |
+| `matchstats` | `GET /fixtures/:id/statistics` | `response[].statistics[]`; **may be empty on free plan** |
+| `ratings` | `GET /fixtures/:id/players` | `response[].players[].statistics[0].games.rating`; **may be empty** |
+| `knockout` | `GET /fixtures/league/:id?season=` | filter by `league.round` → pairings |
+
+> State n8n still owns in **Project A**'s `roundup_news` Postgres: a small `posted_matches` table
+> to dedup pre/post cards (so a fixture isn't posted twice). That's the only DB the MATCH workflows
+> write — reads are all HTTP to `golazo-server`.
 
 ## 1.6 Free-plan degradation (until Pro)
 
@@ -73,10 +92,10 @@ seasons/leagues unavailable, results delayed). The pipeline must **never post a 
   may legitimately be **just the `result` card** — that's fine.
 - **Skip empty leagues/groups** — don't render a `fixtures`/`results`/`group` card with zero rows.
 
-> When you move to **Pro** (in a few days): nothing in the renderer changes. You just (a) raise the
-> sync frequency, (b) the conditional checks above start passing more often (stats/ratings appear),
-> and (c) you can widen `season`/league coverage. Keep the conditional-slide logic — it's also your
-> safety net for the odd missing match.
+> When you move to **Pro** (in a few days): nothing in the renderer **or n8n** changes — `golazo-server`
+> keeps serving the same shapes. The conditional checks above just start passing more often
+> (stats/ratings appear), and you can widen `season`/league coverage in `golazo-server`. Keep the
+> conditional-slide logic — it's also your safety net for the odd missing match.
 
 ---
 
@@ -130,11 +149,11 @@ Cups have no single standings table, so represent their state with:
 
 ---
 
-## 4. api-football endpoints (reference — **the app** calls these, not n8n)
+## 4. api-football endpoints (reference — `golazo-server` proxies these; n8n calls §1.5.1 paths)
 
-For reference only: these are the endpoints the **app** uses to populate the shared store. n8n
-never calls them — it reads the resulting rows (§1.5). Listed so you can map each card's fields
-back to their api-football source.
+For reference only: these are the upstream api-football endpoints that `golazo-server` wraps. n8n
+calls the **`golazo-server` paths** in §1.5.1, not these. Listed so you can trace each card's
+fields back to the api-football source.
 
 | Need | Endpoint |
 |------|----------|

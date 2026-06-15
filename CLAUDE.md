@@ -87,10 +87,12 @@ native-SVG ports of the Studio bodies (the Studio versions use `<foreignObject>`
 copied verbatim). Two competition kinds: **leagues** (Roshn + Top-5 European) use `standing` and
 gate per-match cards by a top-5 filter; **cups** (UCL, World Cup) post **all** matches and show
 structure via `group` (group stage) + `knockout` (the draw/bracket per round). Their **n8n
-orchestration is specced but not built** — see `MATCH-pipeline.md` (api-football endpoints,
-schedules, the filter rules, payload mapping). **The app is the only caller of api-football** and
-writes to a **shared Postgres**; **n8n never calls the API — it reads the app's tables** (single
-source of truth, respects the free-plan request cap, decouples posting from API availability). On the free plan many
+orchestration is specced but not built** — see `MATCH-pipeline.md` (endpoint map, schedules, the
+filter rules, payload mapping). Data source: a separate Railway project runs **`golazo-server`** (an
+Express+Redis **caching proxy** for api-football that feeds the WC-2026 mobile app and returns
+api-football responses **verbatim**); **n8n reads the same `golazo-server` HTTP endpoints the app
+uses** (single source of truth, free-tier-safe via Redis caching — n8n never calls api-football or
+touches Redis). On the free plan many
 fields are missing, so cards **degrade gracefully** (missing score → "—", empty stats/ratings →
 "غير متوفرة", missing logos → placeholder) and carousels **skip empty slides** (e.g. post-match may
 be just the `result` card). The HYBRID/DATA studio templates and TikTok remain **deferred — do not
