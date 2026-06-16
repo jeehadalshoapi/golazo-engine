@@ -34,9 +34,22 @@ Append after any node that outputs `{ items: [ {template,data}, … ] }`.
   ```
 - **HTTP Request "sendMediaGroup"** — POST `https://api.telegram.org/botC/sendMediaGroup`, Body **Using JSON** = `{{ $json }}`.
 
-## Shared TAIL ② — "single photo preview" (pre-match singles, optional)
-- **HTTP "render-url"** — POST `B/render-url`, Body Using JSON = `{{ $json }}` → `{ url }`.
-- **HTTP "sendPhoto"** — POST `https://api.telegram.org/botC/sendPhoto`, Body Using JSON = `{{ {chat_id:'D', photo:$json.url, caption:'…'} }}`.
+> ⚠️ **TAIL ① can fail with `WEBPAGE_CURL_FAILED`** when Telegram fetches the `/img` URLs —
+> intermittent, worse on logo-heavy cards (Telegram times out / load-balanced misses). It works for
+> the news roundup (no external logos) but proved flaky for MATCH cards. **Prefer TAIL ② (binary)
+> for previews.** TAIL ① / URL hosting is still correct for **go-live via Buffer** (Buffer ingests
+> URLs reliably at post-creation).
+
+## Shared TAIL ② — "binary photo preview" ✅ RECOMMENDED (Telegram never fetches a URL)
+Send the PNG **bytes** directly → `WEBPAGE_CURL_FAILED` is impossible. Arrives as one message per
+card (no album — fine for preview). Requires the build node to emit **one item per card**
+(`return items.map(it => ({ json: it }))` instead of `[{json:{items}}]`).
+- **HTTP "render (binary)"** — POST `B/render`, Body **Using JSON** = `{{ $json }}` (each item is
+  `{template,data}`); header `x-golazo-token`=`E` if set; **Options → Response → Response Format =
+  File**, **Put Output In Field** = `data`. → PNG bytes land in binary field `data`.
+- **HTTP "sendPhoto (binary)"** — POST `https://api.telegram.org/botC/sendPhoto`, **Body Content
+  Type = Form-Data**, parameters: `chat_id`=`D` (text), `caption`=`…` (text), `photo` =
+  **n8n Binary File** with Input Data Field Name = `data`.
 
 ---
 
