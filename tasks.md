@@ -84,24 +84,40 @@ Schedule(21:00) → Postgres SELECT top-5 unpublished (incl. hashtags)
 
 ---
 
-## ⚽ MATCH pipeline (api-football) — renderer BUILT, n8n TODO
-Renderer templates are **done & verified** (native-SVG ports), split across `src/svg-helpers.js`
-+ `src/news-templates.js` + `src/match-templates.js`: `standing`, `group`, `knockout`, `prematch`,
-`result`, `matchstats`, `ratings`, `fixtures`, `results`.
-Full build spec (endpoints, schedules, filter rules, payload mapping) is in **`MATCH-pipeline.md`**.
-- [x] Render templates: standing / group / knockout / pre-match / result / matchstats / ratings / fixtures / results.
-- [ ] n8n: build daily TOP5/STANDINGS set (top-5 of each league).
-- [ ] n8n: morning **today's fixtures** carousel (1 card/league).
-- [ ] n8n: **pre-match** single (~3h before) — leagues gated by top-5 (either team); cups always.
-- [ ] n8n: **post-match carousel** `result→matchstats→ratings` at full-time — Telegram approval.
-- [ ] n8n: end-of-day **results** carousel — Telegram approval.
-- [ ] n8n: **cup structure** — `group` (per group) / `knockout` (per round) carousels for UCL/World Cup.
-- [x] Team logos: render service fetches + embeds api-football logo URLs server-side
-      (`src/logos.js`, cached); n8n just passes the URL. Shown on fixtures/results rows + prematch/result crests.
-- [ ] Leagues: Roshn + EPL/La Liga/Serie A/Bundesliga/Ligue 1 (+ all matches: UCL + World Cup).
+## ⚽ MATCH pipeline (api-football) — renderer DONE; n8n previews PARTIALLY built
+Data source = **golazo-server** (caching proxy; n8n reads its HTTP endpoints, never api-football).
+Preview phase: each workflow ends at a **binary Telegram sendPhoto** (no Buffer/approval yet) —
+the URL `sendMediaGroup` tail is flaky for logo-heavy cards (`WEBPAGE_CURL_FAILED`). Build steps
+in **`MATCH-pipeline-build.md`**; design in **`MATCH-pipeline.md`**.
+
+**Renderer (this repo) — DONE & verified:**
+- [x] Templates: standing / group / knockout / prematch / result / matchstats / ratings / fixtures / results.
+- [x] Server-side logo fetch+embed (`src/logos.js`); n8n just passes the URL.
+- [x] Free-plan graceful degradation (missing score → "—"; empty stats/ratings → "غير متوفرة").
+
+**n8n preview workflows (in the roundup dashboard):**
+- [x] #1 **Fixtures** (today's matches) — working.
+- [x] #2 **Results** (today's results) — working.
+- [x] #4 **Pre-match** — built & working (binary preview tail).
+- [x] #5 **Post-match** (`result` + events; matchstats/ratings ready for Pro) — built.
+- [ ] #3 **Standings** — not built (empty until paid plan; see below).
+- [ ] #6 **Cups** — `group` (paid) + `knockout` (buildable now) — not built.
+
+**⛔ BLOCKED on paid api-football plan** (free tier lacks these — fix automatically when upgraded, no code change):
+- [ ] **Standings** endpoint → empty → `top5` set is empty → **domestic-league matches are filtered out**
+      of pre/post-match (only World Cup / UCL flow now, since cups post all). Optional fallback if wanted:
+      `const keep = (DOMESTIC.has(lid) && top5.size) ? (…) : true;` (skip filter when no standings).
+- [ ] **statistics / players** endpoints → `matchstats` + `ratings` slides (post-match is just `result` for now).
+- [ ] `standing` / `group` cards (need standings data).
+
+**Go-live (after previews look right):**
+- [ ] Swap the binary-preview tail for the roundup's **Buffer** tail + re-add **Telegram approval**
+      where `MATCH-pipeline.md §1` marks "inline Telegram".
+- [ ] Pre-match real timing: per-match single ~3h before kickoff + `posted_matches` dedup (now: carousel of all today).
+- [ ] (Optional) merge into **Morning/Evening** workflows; add logos to standings/group.
 
 ## 🕓 Deferred (separate later projects)
-- [ ] Full UCL / World Cup coverage (currently gated by domestic top-5); `lineup` XI cards.
+- [ ] `lineup` XI cards.
 - [ ] TikTok (Photo Mode) after IG/FB/X are stable.
 - [ ] Optional Google Sheet mirror of `roundup_news` for human review.
 
