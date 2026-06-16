@@ -10,15 +10,26 @@ pipeline that publishes to **Buffer (Facebook/Instagram/X)**. `5★` singles pub
 **directly** (no approval); the nightly roundup is gated by an **inline Telegram approval**
 ("Send and Wait for Response"). See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
 
-**Status (2026-06-15): the strategy's core is LIVE.** `5★` news posts instantly as a single;
-`3–4★` accumulates in Postgres and posts as a nightly **roundup carousel** (cover + top-5,
-9 PM Riyadh, inline Telegram approval); `<3` is dropped. All to FB/IG/X via Buffer, with
-per-platform hashtags in the caption. **Part 1** (importance+hashtags+filter) and **Part 2**
-(roundup) are DONE; **Part 3** is partial (singles direct-publish + hashtags done; optional
-caps + schedule activation + secret rotation remain). The MATCH pipeline (api-football) and
-TikTok stay deferred. **Most of the system lives in n8n, not this repo** — the live n8n
-architecture, build log, and every problem/fix are in `PROJECT-SUMMARY.md`; the phased
-status + remaining work are in `tasks.md`. Read both to understand the whole pipeline.
+**Status (2026-06-16): NEWS core LIVE; MATCH pipeline PAUSED on the paid api-football plan.**
+NEWS: `5★` posts instantly as a single; `3–4★` accumulates in Postgres → nightly **roundup
+carousel** (9 PM Riyadh, inline Telegram approval); `<3` dropped. All to FB/IG/X via Buffer.
+Part 1 (importance+hashtags+filter) + Part 2 (roundup) DONE; Part 3 partial. TikTok deferred.
+
+**MATCH pipeline (api-football) — IN PROGRESS, paused here:** the **renderer is fully built**
+(9 match templates + logos + free-plan degradation, all in this repo). The **n8n side is in a
+PREVIEW phase** (each workflow ends at a **binary Telegram `sendPhoto`** — no Buffer, no approval
+yet). **Built & working: #1 fixtures, #2 results, #4 pre-match, #5 post-match.** Data comes from
+**`golazo-server`** (a caching proxy; n8n reads its HTTP endpoints, never api-football directly).
+⛔ **We stopped because the free api-football plan lacks `standings`/`statistics`/`players`** — so
+`top5` is empty (domestic-league matches filter out; only World Cup/UCL flow), and the
+`matchstats`/`ratings`/`standing`/`group` cards have no data. **Resume when the PAID plan lands:**
+(1) those gaps auto-fill with **zero code changes**; (2) build the remaining workflows **#3
+standings + #6 cups**; (3) go-live swap (binary preview tail → Buffer tail + Telegram approval;
+pre-match per-match 3h-before timing + dedup). Exact done/blocked/remaining list is in `tasks.md`;
+node-by-node build steps in `MATCH-pipeline-build.md`; design in `MATCH-pipeline.md`.
+
+**Most of the system lives in n8n, not this repo** — the live n8n architecture + every problem/fix
+are in `PROJECT-SUMMARY.md`; the phased status + remaining work are in `tasks.md`. Read both.
 
 ## What this builds
 

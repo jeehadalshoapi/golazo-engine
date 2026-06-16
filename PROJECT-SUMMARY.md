@@ -196,5 +196,25 @@ Remaining (all optional / operational — see `tasks.md`):
   tokens — gitignored, never committed, but plaintext locally + exposed in the build chat).
 - ▶️ **Roundup auto-publish** — drop the Send-and-Wait node when you trust it.
 - 🛡️ **(Optional) anti-spam** — 6/day/platform cap + 30-min anti-burst (low urgency; 5★ is rare).
-- 🔭 **Deferred projects:** MATCH pipeline (pre/post-match + stat cards from api-football), TikTok,
-  optional Google Sheet mirror.
+- 🔭 **Deferred projects:** TikTok, optional Google Sheet mirror.
+
+## 6. MATCH pipeline (api-football) — IN PROGRESS, paused on the paid plan
+
+**Renderer DONE** (this repo): 9 match templates (`standing`/`group`/`knockout`/`prematch`/`result`/
+`matchstats`/`ratings`/`fixtures`/`results`), server-side logo embedding (`src/logos.js`), free-plan
+graceful degradation. Split across `src/svg-helpers.js` + `src/news-templates.js` + `src/match-templates.js`.
+
+**n8n PREVIEW phase** (in the same dashboard as the roundup): every workflow ends at a **binary
+Telegram `sendPhoto`** (no Buffer, no approval) — the URL `sendMediaGroup` tail proved flaky for
+logo-heavy cards (`WEBPAGE_CURL_FAILED`), so we send PNG bytes directly. **Data source = `golazo-server`**
+(an Express+Redis caching proxy for api-football, separate Railway project; n8n reads its HTTP
+endpoints verbatim, never calls api-football or Redis).
+
+- ✅ Built & working: **#1 fixtures, #2 results, #4 pre-match, #5 post-match** (`result` + events).
+- ⏸ **Paused here** — the **free api-football plan** lacks `standings`/`statistics`/`players`, so
+  `top5` is empty (domestic leagues filter out; only World Cup/UCL flow) and `matchstats`/`ratings`/
+  `standing`/`group` have no data. **Not a bug** — fixes itself on the paid plan with no code change.
+
+**Resume on the PAID plan:** (1) gaps auto-fill; (2) build **#3 standings + #6 cups**; (3) go-live
+swap (binary preview → Buffer tail + Telegram approval; pre-match per-match 3h timing + dedup).
+Full status in `tasks.md`; node-by-node build in `MATCH-pipeline-build.md`; design in `MATCH-pipeline.md`.
