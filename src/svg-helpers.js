@@ -215,28 +215,30 @@ function vstack(top, bottom, blocks) {
 const cells = s => String(s == null ? '' : s).split('|').map(x => x.trim());
 const listRows = (s, cap) => String(s == null ? '' : s).split('\n').map(x => x.trim()).filter(Boolean).slice(0, cap);
 
-// Big two-tone block heading (e.g. MATCH / DAY, FULL / TIME). Two side-by-side
-// blocks — yellow box + navy word, navy box + yellow word — sized to each word
-// (via antonW) and centered as a unit, so any word pair fits with no overflow.
-// (The Studio original hardcoded the box widths/positions for "FULL", so longer
-//  words like "MATCH" overflowed onto the next block and a letter disappeared.)
+// Big two-tone block heading (e.g. MATCH / DAY, FULL / TIME). Restores the Studio
+// layered look — a light-green band under the BOTTOM HALF of t1 (top half sits on
+// plain paper) joined with no gap to a full-height dark-green block behind t2 —
+// but the two backgrounds are now sized to each word (via antonW) and centered as
+// a unit, so longer words like "MATCH" no longer overflow and drop a letter.
 function blockTitle(t1, t2) {
-  const size = 122;                 // bold display size; boxes adapt to the words
-  const padX = 28, gap = 16;        // inner horizontal padding + gap between blocks
-  const h = Math.round(size * 1.08);
-  const yTop = 168, cy = yTop + h / 2;
-  const tb = (cy + size * 0.34).toFixed(1);          // Anton optical baseline
-  const bw1 = antonW(t1, size) + padX * 2;
-  const bw2 = antonW(t2, size) + padX * 2;
-  const total = bw1 + gap + bw2;
-  const x1 = 540 - total / 2;        // center the pair on the card
-  const x2 = x1 + bw1 + gap;
+  const S = 122;                     // display size; backgrounds adapt to the words
+  const padX = 24;
+  const bw1 = antonW(t1, S) + padX * 2;   // light-green band width (fits t1)
+  const bw2 = antonW(t2, S) + padX * 2;   // dark-green block width (fits t2)
+  const x1 = 540 - (bw1 + bw2) / 2;       // center the connected pair on the card
+  const x2 = x1 + bw1;                     // dark block starts where the band ends → no gap
+  const yTop = 168;                        // top of the full-height dark (t2) block
+  const navyH = Math.round(S * 1.0);
+  const by = yTop + S * 0.93;              // shared text baseline
+  const bandTop = by - S * 0.45;           // band covers only the bottom ~half of t1
+  const bandH = Math.round(S * 0.55);
+  const tb = by.toFixed(1);
   return `
-  <rect x="${x1.toFixed(1)}" y="${(yTop - 22).toFixed(0)}" width="${total.toFixed(1)}" height="10" fill="${C.navy}"/>
-  <rect x="${x1.toFixed(1)}" y="${yTop}" width="${bw1.toFixed(1)}" height="${h}" fill="${C.yellow}"/>
-  <rect x="${x2.toFixed(1)}" y="${yTop}" width="${bw2.toFixed(1)}" height="${h}" fill="${C.navy}"/>
-  <text x="${(x1 + bw1 / 2).toFixed(1)}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${size}" fill="${C.navy}">${esc(t1)}</text>
-  <text x="${(x2 + bw2 / 2).toFixed(1)}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${size}" fill="${C.yellow}">${esc(t2)}</text>`;
+  <rect x="${x2.toFixed(1)}" y="${(yTop - 14).toFixed(0)}" width="${bw2.toFixed(1)}" height="12" fill="${C.navy}"/>
+  <rect x="${x1.toFixed(1)}" y="${bandTop.toFixed(1)}" width="${bw1.toFixed(1)}" height="${bandH}" fill="${C.yellow}"/>
+  <rect x="${x2.toFixed(1)}" y="${yTop}" width="${bw2.toFixed(1)}" height="${navyH}" fill="${C.navy}"/>
+  <text x="${(x1 + bw1 / 2).toFixed(1)}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${S}" fill="${C.navy}">${esc(t1)}</text>
+  <text x="${(x2 + bw2 / 2).toFixed(1)}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${S}" fill="${C.yellow}">${esc(t2)}</text>`;
 }
 
 // Team crest centered at (cx,cy). The logo is embedded by the server (logos.js)
