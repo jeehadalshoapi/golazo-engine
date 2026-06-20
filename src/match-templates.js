@@ -228,9 +228,15 @@ module.exports = {
         const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
         // Free-plan: score may be missing (not played / data gap) → show a dash, no chip.
-        const mid = has(score) ? score : '—';
+        // Score arrives "home - away", but the row is RTL (home on the right, away
+        // on the left), so flip the halves to put each number under its own team.
+        let mid = '—';
         if (has(score)) {
-          const sw = Math.max(70, strW(score, fs) + 28);
+          const sp = String(score).split(/\s*[-–:]\s*/);
+          mid = sp.length === 2 ? `${sp[1].trim()} - ${sp[0].trim()}` : String(score).trim();
+        }
+        if (has(score)) {
+          const sw = Math.max(70, strW(mid, fs) + 28);
           body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.30).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.6).toFixed(0)}" rx="7" fill="${C.yellow}"/>`;
         }
         body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(mid)}</text>`;

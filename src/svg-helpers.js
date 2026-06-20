@@ -53,6 +53,24 @@ function strW(s, size) {
   return w;
 }
 
+// Anton is a condensed all-caps display face with very different metrics from
+// Cairo, so the headings (blockTitle) need their own estimator to size the boxes
+// to the actual word width. Ratios are advance/font-size, tuned for Anton caps.
+function antonW(s, size) {
+  let w = 0;
+  for (const ch of String(s).toUpperCase()) {
+    let f;
+    if (ch === ' ') f = 0.30;
+    else if ('IJ'.includes(ch)) f = 0.26;
+    else if ('MW'.includes(ch)) f = 0.70;
+    else if ('TLFEZ'.includes(ch)) f = 0.48;
+    else if (/[0-9]/.test(ch)) f = 0.54;
+    else f = 0.56; // most caps (A,C,D,H,U,Y,…)
+    w += size * f;
+  }
+  return w;
+}
+
 // Greedy word wrap that respects explicit '\n' paragraph breaks.
 function wrapLines(text, maxW, size) {
   const paras = String(text == null ? '' : text).split('\n');
@@ -197,14 +215,28 @@ function vstack(top, bottom, blocks) {
 const cells = s => String(s == null ? '' : s).split('|').map(x => x.trim());
 const listRows = (s, cap) => String(s == null ? '' : s).split('\n').map(x => x.trim()).filter(Boolean).slice(0, cap);
 
-// Big two-tone block heading (e.g. MATCH / DAY). Verbatim native SVG from Studio.
+// Big two-tone block heading (e.g. MATCH / DAY, FULL / TIME). Two side-by-side
+// blocks — yellow box + navy word, navy box + yellow word — sized to each word
+// (via antonW) and centered as a unit, so any word pair fits with no overflow.
+// (The Studio original hardcoded the box widths/positions for "FULL", so longer
+//  words like "MATCH" overflowed onto the next block and a letter disappeared.)
 function blockTitle(t1, t2) {
+  const size = 122;                 // bold display size; boxes adapt to the words
+  const padX = 28, gap = 16;        // inner horizontal padding + gap between blocks
+  const h = Math.round(size * 1.08);
+  const yTop = 168, cy = yTop + h / 2;
+  const tb = (cy + size * 0.34).toFixed(1);          // Anton optical baseline
+  const bw1 = antonW(t1, size) + padX * 2;
+  const bw2 = antonW(t2, size) + padX * 2;
+  const total = bw1 + gap + bw2;
+  const x1 = 540 - total / 2;        // center the pair on the card
+  const x2 = x1 + bw1 + gap;
   return `
-  <rect x="545" y="150" width="320" height="14" fill="${C.navy}"/>
-  <rect x="230" y="232" width="320" height="82" fill="${C.yellow}"/>
-  <rect x="545" y="160" width="320" height="150" fill="${C.navy}"/>
-  <text x="245" y="300" font-family="Anton" font-size="150" fill="${C.navy}">${esc(t1)}</text>
-  <text x="705" y="300" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.yellow}">${esc(t2)}</text>`;
+  <rect x="${x1.toFixed(1)}" y="${(yTop - 22).toFixed(0)}" width="${total.toFixed(1)}" height="10" fill="${C.navy}"/>
+  <rect x="${x1.toFixed(1)}" y="${yTop}" width="${bw1.toFixed(1)}" height="${h}" fill="${C.yellow}"/>
+  <rect x="${x2.toFixed(1)}" y="${yTop}" width="${bw2.toFixed(1)}" height="${h}" fill="${C.navy}"/>
+  <text x="${(x1 + bw1 / 2).toFixed(1)}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${size}" fill="${C.navy}">${esc(t1)}</text>
+  <text x="${(x2 + bw2 / 2).toFixed(1)}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${size}" fill="${C.yellow}">${esc(t2)}</text>`;
 }
 
 // Team crest centered at (cx,cy). The logo is embedded by the server (logos.js)
