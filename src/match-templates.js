@@ -8,7 +8,7 @@
  *   - Cups (UCL / World Cup) → `group` tables + `knockout` pairings; ALL matches
  *     posted (every cup match is important). See MATCH-pipeline.md.
  */
-const { C, esc, has, arBox, arBlock, strW, blockTitle, crest, rowLogo, cells, listRows, tableRows } = require('./svg-helpers');
+const { C, W, esc, has, arBox, arBlock, arText, strW, blockTitle, crest, rowLogo, cells, listRows, tableRows } = require('./svg-helpers');
 
 module.exports = {
   // League table (already ordered top→down; rank is derived from row order).
@@ -64,6 +64,129 @@ module.exports = {
     ${arBox(330, 150, 420, 72, 'الأدوار الإقصائية', 900, 32, C.yellow)}
     ${arBox(80, 238, 920, 46, [d.comp, d.round].filter(has).join('   ·   '), 800, 34, C.navy)}
     ${body}`;
+    }
+  },
+
+  // Full knockout bracket TREE in one image (two-sided: rounds converge to the
+  // center final). data.rounds = ordered first→last (last = final), each
+  // { title, matches:[{home,away,hs?,as?}] }; matches in bracket order (top→bottom,
+  // first half feeds the left side). Optional data.champion. Adapts to bracket size
+  // (UCL R16 = 16 teams is comfy; World Cup R32 = 32 is dense — feed it from R16 if so).
+  bracket: {
+    name: 'شجرة الأدوار الإقصائية',
+    fields: ['comp', 'rounds', 'champion'],
+    content: d => {
+      const rounds = Array.isArray(d.rounds)
+        ? d.rounds.filter(r => r && Array.isArray(r.matches) && r.matches.length)
+        : [];
+      const header = `
+    <rect x="340" y="150" width="400" height="64" rx="32" fill="${C.navy}"/>
+    ${arBox(340, 150, 400, 64, 'الأدوار الإقصائية', 900, 32, C.yellow)}
+    ${arBox(80, 222, 920, 42, d.comp, 800, 34, C.navy)}`;
+      if (!rounds.length) return header + arBox(80, 430, 920, 160, 'لا توجد مباريات', 700, 40, '#7a8a74');
+
+      const R = rounds.length;                  // last round = final (center column)
+      const M = 44, topY = 300, botY = 944;
+      const totalCols = 2 * (R - 1) + 1;
+      const colW = (W - 2 * M) / totalCols;
+      const colCx = k => M + colW * (k + 0.5);
+
+      // split each non-final round into left / right halves (first half → left)
+      const L = [], Rt = [];
+      for (let j = 0; j < R - 1; j++) {
+        const ms = rounds[j].matches;
+        const half = Math.ceil(ms.length / 2);
+        L[j] = ms.slice(0, half).map(m => ({ m }));
+        Rt[j] = ms.slice(half).map(m => ({ m }));
+      }
+      // y centers: round 0 evenly spaced, later rounds = midpoint of their two feeders
+      const space = arr => {
+        const n = arr.length || 1, gap = (botY - topY) / n;
+        arr.forEach((o, i) => { o.cy = topY + gap * (i + 0.5); });
+        return gap;
+      };
+      const gap0 = Math.max(space(L[0] || []), space(Rt[0] || []));
+      for (let j = 1; j < R - 1; j++) {
+        [L, Rt].forEach(side => {
+          (side[j] || []).forEach((o, i) => {
+            const a = side[j - 1][2 * i], b = side[j - 1][2 * i + 1];
+            o.cy = (a && b) ? (a.cy + b.cy) / 2 : (a || b || { cy: (topY + botY) / 2 }).cy;
+          });
+        });
+      }
+      const finalM = rounds[R - 1].matches[0];
+      const lLast = (L[R - 2] || [])[0], rLast = (Rt[R - 2] || [])[0];
+      const finalCy = (lLast && rLast) ? (lLast.cy + rLast.cy) / 2 : (topY + botY) / 2;
+
+      const boxH = Math.max(28, Math.min(72, gap0 * 0.66));
+      const bw = colW - 14;
+      const fs = Math.max(10, Math.min(17, Math.floor(boxH * 0.26)));
+      const line = (x1, y1, x2, y2) =>
+        `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${C.navy}" stroke-width="1.4" opacity="0.4"/>`;
+
+      let body = '';
+      const drawBox = (cx, cy, m) => {
+        const x = cx - bw / 2, y = cy - boxH / 2, rh = boxH / 2;
+        const hs = has(m.hs) ? '  ' + m.hs : '', as = has(m.as) ? '  ' + m.as : '';
+        // winner (advancing team) gets a yellow row tint so the path is traceable
+        const hn = parseFloat(m.hs), an = parseFloat(m.as);
+        const hWin = !isNaN(hn) && !isNaN(an) && hn > an, aWin = !isNaN(hn) && !isNaN(an) && an > hn;
+        body += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${boxH.toFixed(1)}" rx="6" fill="#ffffff" stroke="${C.navy}" stroke-width="1.4"/>`;
+        if (hWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + 1.5).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
+        if (aWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + rh).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
+        body += `<line x1="${x.toFixed(1)}" y1="${(y + rh).toFixed(1)}" x2="${(x + bw).toFixed(1)}" y2="${(y + rh).toFixed(1)}" stroke="${C.navy}" stroke-width="0.8" opacity="0.25"/>`;
+        body += arText(x + 5, y, bw - 10, rh, (m.home || '') + hs, hWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
+        body += arText(x + 5, y + rh, bw - 10, rh, (m.away || '') + as, aWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
+      };
+      // connector elbow: two children in column jChild → one parent in next column toward center
+      const connect = (children, parents, jChild, side) => {
+        const childCol = side === 'L' ? jChild : totalCols - 1 - jChild;
+        const parentCol = side === 'L' ? jChild + 1 : totalCols - 1 - (jChild + 1);
+        const dir = side === 'L' ? 1 : -1;
+        const childEdge = colCx(childCol) + dir * bw / 2;
+        const parentEdge = colCx(parentCol) - dir * bw / 2;
+        const midX = (childEdge + parentEdge) / 2;
+        parents.forEach((p, i) => {
+          const a = children[2 * i], b = children[2 * i + 1];
+          if (a) body += line(childEdge, a.cy, midX, a.cy);
+          if (b) body += line(childEdge, b.cy, midX, b.cy);
+          if (a && b) body += line(midX, a.cy, midX, b.cy);
+          body += line(midX, p.cy, parentEdge, p.cy);
+        });
+      };
+
+      // connectors first (boxes drawn on top)
+      for (let j = 0; j < R - 2; j++) { connect(L[j], L[j + 1], j, 'L'); connect(Rt[j], Rt[j + 1], j, 'R'); }
+      // semifinal → final (center)
+      if (R >= 2) {
+        const cxC = colCx(R - 1);
+        if (lLast) { const e = colCx(R - 2) + bw / 2, pe = cxC - bw / 2, mx = (e + pe) / 2;
+          body += line(e, lLast.cy, mx, lLast.cy) + line(mx, lLast.cy, mx, finalCy) + line(mx, finalCy, pe, finalCy); }
+        if (rLast) { const e = colCx(totalCols - R) - bw / 2, pe = cxC + bw / 2, mx = (e + pe) / 2;
+          body += line(e, rLast.cy, mx, rLast.cy) + line(mx, rLast.cy, mx, finalCy) + line(mx, finalCy, pe, finalCy); }
+      }
+      // round labels
+      let labels = '';
+      for (let j = 0; j < R - 1; j++) {
+        const t = esc(rounds[j].title || '');
+        labels += `<text x="${colCx(j).toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="15" fill="#3a5a33">${t}</text>`;
+        labels += `<text x="${colCx(totalCols - 1 - j).toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="15" fill="#3a5a33">${t}</text>`;
+      }
+      labels += `<text x="${colCx(R - 1).toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="16" fill="${C.navy}">${esc(rounds[R - 1].title || 'النهائي')}</text>`;
+      // boxes
+      for (let j = 0; j < R - 1; j++) {
+        (L[j] || []).forEach(o => drawBox(colCx(j), o.cy, o.m));
+        (Rt[j] || []).forEach(o => drawBox(colCx(totalCols - 1 - j), o.cy, o.m));
+      }
+      drawBox(colCx(R - 1), finalCy, finalM);
+      // champion ribbon under the final
+      let champ = '';
+      if (has(d.champion)) {
+        const cx = colCx(R - 1), y = finalCy + boxH / 2 + 12;
+        champ = `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="36" rx="8" fill="${C.yellow}"/>` +
+          arBox(cx - bw / 2, y, bw, 36, d.champion, 900, fs + 2, C.navy);
+      }
+      return header + labels + body + champ;
     }
   },
 
