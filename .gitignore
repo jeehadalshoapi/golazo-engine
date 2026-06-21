@@ -27,5 +27,8 @@ memory/
 # Archives
 files.zip
 
+# Source logo drop (misnamed webp) — the committed PNG lives in assets/
+WC.svg
+
 # NOTE: fonts/ is intentionally NOT ignored — TTF files are required at runtime.
 # NOTE: golazo-logo.png is intentionally NOT ignored — the renderer embeds it at runtime.

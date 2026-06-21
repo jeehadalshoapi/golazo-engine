@@ -18,6 +18,7 @@
  * ingests it (minutes–hours). For durable hosting, swap IMG_STORE for object storage.
  */
 const crypto = require('crypto');
+const path = require('path');
 const express = require('express');
 const { buildSvg, TEMPLATES } = require('./src/templates');
 const { svgToPng } = require('./src/render');
@@ -25,6 +26,11 @@ const { collectLogoUrls, resolveLogos } = require('./src/logos');
 
 const app = express();
 app.use(express.json({ limit: '256kb' }));
+
+// Static brand/competition assets (e.g. /asset/worldcup.png) — used to override
+// the placeholder logos api-football returns for some competitions (World Cup).
+// Public, like /img, so n8n / the renderer can fetch them.
+app.use('/asset', express.static(path.join(__dirname, 'assets'), { maxAge: '7d' }));
 
 const PORT = process.env.PORT || 3000;
 const RENDER_TOKEN = process.env.RENDER_TOKEN;
