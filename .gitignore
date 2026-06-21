@@ -19,6 +19,7 @@ Thumbs.db
 # Local render output
 /tmp/
 out/
+gallery.html
 
 # Claude Code agent memory (local only)
 memory/

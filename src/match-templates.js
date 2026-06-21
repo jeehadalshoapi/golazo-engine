@@ -37,7 +37,8 @@ module.exports = {
   },
 
   // Knockout draw / bracket — pairings for one round. ALL cup matches matter.
-  // list: "home | away | score?" per line (score optional → shows "ضد"). ≤8 pairs.
+  // list: "home | away | score? | homeLogo? | awayLogo?" per line (score optional →
+  // shows "ضد"). Teams show as their CREST (logo); falls back to the name if no logo.
   knockout: {
     name: 'الأدوار الإقصائية',
     fields: ['comp', 'round', 'list'],
@@ -45,9 +46,11 @@ module.exports = {
       const rows = listRows(d.list, 8);
       const top = 360, bottom = 930, gap = Math.min(104, (bottom - top) / Math.max(rows.length, 1));
       const fs = Math.max(22, Math.min(34, Math.floor(gap * 0.32)));
+      const lr = Math.min(48, Math.round(gap * 0.38));
       let body = '';
       rows.forEach((r, i) => {
-        const c = cells(r); const home = c[0] || '', away = c[1] || '', score = c[2] || '';
+        const c = cells(r);
+        const home = c[0] || '', away = c[1] || '', score = c[2] || '', homeLogo = c[3] || '', awayLogo = c[4] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
         body += `<rect x="120" y="${(y + 6).toFixed(0)}" width="840" height="${(gap - 12).toFixed(0)}" rx="12" fill="${C.navy}" opacity="0.05"/>`;
         // bracket tick on the right edge of each pairing
@@ -56,8 +59,9 @@ module.exports = {
         const sw = Math.max(96, strW(mid, fs) + 34);
         body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.22).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.44).toFixed(0)}" rx="8" fill="${C.yellow}"/>`;
         body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(mid)}</text>`;
-        body += arBox(560, cy - gap / 2, 350, gap, home, 800, fs, C.navy);
-        body += arBox(170, cy - gap / 2, 350, gap, away, 800, fs, C.navy);
+        // home on the right, away on the left (RTL) — crest if available, else name
+        body += has(homeLogo) ? rowLogo(735, cy, homeLogo, lr) : arBox(560, cy - gap / 2, 350, gap, home, 800, fs, C.navy);
+        body += has(awayLogo) ? rowLogo(345, cy, awayLogo, lr) : arBox(170, cy - gap / 2, 350, gap, away, 800, fs, C.navy);
       });
       return `
     <rect x="330" y="150" width="420" height="72" rx="36" fill="${C.navy}"/>
@@ -135,8 +139,12 @@ module.exports = {
         if (hWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + 1.5).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
         if (aWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + rh).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
         body += `<line x1="${x.toFixed(1)}" y1="${(y + rh).toFixed(1)}" x2="${(x + bw).toFixed(1)}" y2="${(y + rh).toFixed(1)}" stroke="${C.navy}" stroke-width="0.8" opacity="0.25"/>`;
-        body += arText(x + 5, y, bw - 10, rh, (m.home || '') + hs, hWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
-        body += arText(x + 5, y + rh, bw - 10, rh, (m.away || '') + as, aWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
+        const lr2 = Math.min(13, Math.round(rh * 0.42));
+        const nx = x + 6 + lr2 * 2 + 2, nw = bw - lr2 * 2 - 16;
+        if (has(m.homeLogo)) body += rowLogo(x + 6 + lr2, y + rh / 2, m.homeLogo, lr2);
+        if (has(m.awayLogo)) body += rowLogo(x + 6 + lr2, y + rh + rh / 2, m.awayLogo, lr2);
+        body += arText(nx, y, nw, rh, (m.home || '') + hs, hWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
+        body += arText(nx, y + rh, nw, rh, (m.away || '') + as, aWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
       };
       // connector elbow: two children in column jChild → one parent in next column toward center
       const connect = (children, parents, jChild, side) => {

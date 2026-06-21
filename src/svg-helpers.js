@@ -260,23 +260,27 @@ function rowLogo(cx, cy, logo, r = 16) {
 }
 
 // A standings/group table column layout shared by `standing` and `group`.
-// rows = array of "team | played | GD | pts" strings; rank is the row order.
+// rows = array of "team | played | GD | pts | logo?" strings; rank is the row order.
+// The optional 5th cell is the team's api-football logo URL → a small crest is
+// drawn just left of the rank (server embeds it; missing → omitted, no gap jump).
 // headerY = baseline of the header labels; opts.highlight = #rows to tint yellow
 // (top-N qualify, for group stage). Returns the header + body SVG.
 function tableRows(rows, top, bottom, opts = {}) {
   const gap = Math.min(opts.maxGap || 72, (bottom - top) / Math.max(rows.length, 1));
   const fs = Math.max(22, Math.min(opts.maxFs || 32, Math.floor(gap * (opts.fsMul || 0.42))));
-  const X = { rank: 960, team: 905, played: 470, gd: 320, pts: 165 };
+  const lr = Math.min(18, Math.round(fs * 0.62));          // crest radius
+  const X = { rank: 968, logo: 924, team: 900, played: 470, gd: 320, pts: 165 };
   const hLabel = (x, t, a) => `<text x="${x}" y="${opts.headerY}" text-anchor="${a}" font-family="Cairo" font-weight="800" font-size="22" fill="#3a5a33">${t}</text>`;
   let body = hLabel(X.rank, '#', 'end') + hLabel(X.team, 'الفريق', 'end') +
     hLabel(X.played, 'لعب', 'middle') + hLabel(X.gd, '+/-', 'middle') + hLabel(X.pts, 'نقاط', 'middle');
   rows.forEach((r, i) => {
     const c = cells(r);
-    const pos = i + 1, team = c[0] || '', played = c[1] || '', gd = c[2] || '', pts = c[3] || '';
+    const pos = i + 1, team = c[0] || '', played = c[1] || '', gd = c[2] || '', pts = c[3] || '', logo = c[4] || '';
     const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
     if (opts.highlight && i < opts.highlight) body += `<rect x="100" y="${y.toFixed(0)}" width="880" height="${gap.toFixed(0)}" rx="8" fill="${C.yellow}" opacity="0.20"/>`;
     else if (i % 2 === 0) body += `<rect x="100" y="${y.toFixed(0)}" width="880" height="${gap.toFixed(0)}" rx="8" fill="${C.navy}" opacity="0.05"/>`;
     body += `<text x="${X.rank}" y="${tb}" text-anchor="end" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(pos)}</text>`;
+    body += rowLogo(X.logo, cy, logo, lr);
     body += `<text x="${X.team}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(team)}</text>`;
     body += `<text x="${X.played}" y="${tb}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="${fs}" fill="#13350c">${esc(played)}</text>`;
     body += `<text x="${X.gd}" y="${tb}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="${fs}" fill="#13350c">${esc(gd)}</text>`;
