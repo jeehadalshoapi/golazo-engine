@@ -42,10 +42,9 @@ module.exports = {
     name: 'دور المجموعات',
     fields: ['comp', 'compLogo', 'group', 'rows'],
     content: d => `
-    <rect x="350" y="150" width="380" height="62" rx="31" fill="${C.navy}"/>
-    ${compTitle(540, 181, d.comp || 'دور المجموعات', d.compLogo, 26, C.yellow, { maxW: 360 })}
-    <rect x="300" y="236" width="480" height="92" rx="12" fill="${C.yellow}"/>
-    ${arBox(300, 236, 480, 92, d.group || 'المجموعة', 900, 50, C.navy)}
+    ${has(d.compLogo) ? rowLogo(540, 178, d.compLogo, 44) : arBox(80, 152, 920, 52, d.comp || 'دور المجموعات', 800, 32, C.navy)}
+    <rect x="380" y="236" width="320" height="60" rx="12" fill="${C.yellow}"/>
+    ${arBox(380, 236, 320, 60, d.group || 'المجموعة', 900, 38, C.navy)}
     ${tableRows(listRows(d.rows, 6), 420, 930, { headerY: 405, maxGap: 84, maxFs: 34, fsMul: 0.40, highlight: 2 })}`
   },
 
@@ -306,20 +305,29 @@ module.exports = {
     content: d => {
       // one column of players: names right-aligned at xName, rating chip at xChip
       const sideCol = (xName, xChip, list) => {
-        const rows = listRows(list, 9);
-        const top = 332, bottom = 905, gap = Math.min(60, (bottom - top) / Math.max(rows.length, 1));
+        // sort by rating; if more than 10 players show the TOP 7 + WORST 3 (dashed gap)
+        let rows = listRows(list, 30).map(r => { const p = cells(r); return { name: p[0] || '', rt: p[1] || '', rv: parseFloat(p[1]) || 0 }; });
+        rows.sort((a, b) => b.rv - a.rv);
+        let splitAfter = 0;
+        if (rows.length > 10) { rows = rows.slice(0, 7).concat(rows.slice(-3)); splitAfter = 7; }
+        const top = 332, bottom = 905, sepExtra = splitAfter ? 0.7 : 0;
+        const gap = Math.min(60, (bottom - top) / Math.max(rows.length + sepExtra, 1));
         const fs = Math.max(18, Math.min(30, Math.floor(gap * 0.52)));
         const cw = 80;
         let b = '';
-        rows.forEach((r, i) => {
-          const p = cells(r); const name = p[0] || '', rt = p[1] || '', rv = parseFloat(rt) || 0;
-          const bg = rv >= 7.5 ? C.navy : rv >= 6.5 ? C.yellow : C.red;
-          const fg = (rv >= 6.5 && rv < 7.5) ? C.navy : '#fff';
-          const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
-          b += `<text x="${xName}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(name)}</text>`;
+        rows.forEach((o, i) => {
+          const bg = o.rv >= 7.5 ? C.navy : o.rv >= 6.5 ? C.yellow : C.red;
+          const fg = (o.rv >= 6.5 && o.rv < 7.5) ? C.navy : '#fff';
+          const extra = (splitAfter && i >= splitAfter) ? sepExtra * gap : 0;
+          const y = top + i * gap + extra, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
+          if (splitAfter && i === splitAfter) {
+            const sy = (y - sepExtra * gap / 2).toFixed(0);
+            b += `<line x1="${xChip}" y1="${sy}" x2="${xName}" y2="${sy}" stroke="${C.navy}" stroke-width="2" stroke-dasharray="6 7" opacity="0.45"/>`;
+          }
+          b += `<text x="${xName}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(o.name)}</text>`;
           b += `<rect x="${xChip}" y="${(cy - gap * 0.32).toFixed(0)}" width="${cw}" height="${(gap * 0.62).toFixed(0)}" rx="8" fill="${bg}"/>`;
-          b += `<text x="${xChip + cw / 2}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${fg}">${esc(rt)}</text>`;
-          if (i < rows.length - 1) b += `<line x1="${xChip}" y1="${(y + gap).toFixed(0)}" x2="${xName}" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.4"/>`;
+          b += `<text x="${xChip + cw / 2}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${fg}">${esc(o.rt)}</text>`;
+          if (i < rows.length - 1 && i !== splitAfter - 1) b += `<line x1="${xChip}" y1="${(y + gap).toFixed(0)}" x2="${xName}" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.4"/>`;
         });
         return b || arBox(xChip, 420, xName - xChip, 300, 'غير متوفرة', 700, 26, '#7a8a74');
       };
