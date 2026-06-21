@@ -268,7 +268,7 @@ module.exports = {
   // Match statistics with comparison bars. stats: "label | home | away" per line.
   matchstats: {
     name: 'تحليل إحصائي',
-    fields: ['home', 'away', 'score', 'stats'],
+    fields: ['home', 'homeLogo', 'away', 'awayLogo', 'score', 'stats'],
     content: d => {
       const rows = listRows(d.stats, 7);
       const startY = 372, rowH = Math.min(104, (930 - startY) / Math.max(rows.length, 1));
@@ -289,47 +289,56 @@ module.exports = {
       return `
     <rect x="350" y="158" width="380" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(350, 158, 380, 72, 'إحصائيات المباراة', 900, 34, C.yellow)}
-    ${arBox(80, 250, 360, 60, d.home, 900, 40, C.navy)}
+    ${compTitle(260, 280, d.home, d.homeLogo, 38, C.navy, { maxW: 340, weight: 900 })}
     ${arBox(440, 250, 200, 60, d.score, 900, 46, C.navy)}
-    ${arBox(640, 250, 360, 60, d.away, 900, 40, C.navy)}
+    ${compTitle(820, 280, d.away, d.awayLogo, 38, C.navy, { maxW: 340, weight: 900 })}
     ${rows.length ? body : arBox(80, 372, 920, 460, 'الإحصائيات غير متوفرة', 700, 38, '#7a8a74')}
     <rect x="335" y="905" width="22" height="22" fill="${C.navy}"/>${arBox(360, 899, 150, 34, d.home, 700, 24, C.navy)}
     <rect x="560" y="905" width="22" height="22" fill="${C.yellow}"/>${arBox(585, 899, 150, 34, d.away, 700, 24, C.navy)}`;
     }
   },
 
-  // Player ratings. list: "name | rating" per line. Chip color by rating band.
+  // Player ratings — two columns, one team each (logo + name header, players below).
+  // home / away: "name | rating" per line. Chip color by rating band.
   ratings: {
     name: 'تقييمات اللاعبين',
-    fields: ['team', 'list'],
+    fields: ['homeTeam', 'homeLogo', 'home', 'awayTeam', 'awayLogo', 'away'],
     content: d => {
-      const rows = listRows(d.list, 11);
-      const top = 320, gap = Math.min(56, (905 - top) / Math.max(rows.length, 1));
-      const fs = Math.max(22, Math.min(32, Math.floor(gap * 0.55)));
-      let body = '';
-      rows.forEach((r, i) => {
-        const p = cells(r); const name = p[0] || '', rt = p[1] || '', rv = parseFloat(rt) || 0;
-        const bg = rv >= 7.5 ? C.navy : rv >= 6.5 ? C.yellow : C.red;
-        const fg = (rv >= 6.5 && rv < 7.5) ? C.navy : '#fff';
-        const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
-        const cw = 96, cx0 = 130;
-        body += `<text x="930" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(name)}</text>`;
-        body += `<rect x="${cx0}" y="${(cy - gap * 0.32).toFixed(0)}" width="${cw}" height="${(gap * 0.64).toFixed(0)}" rx="8" fill="${bg}"/>`;
-        body += `<text x="${cx0 + cw / 2}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${fg}">${esc(rt)}</text>`;
-        if (i < rows.length - 1) body += `<line x1="150" y1="${(y + gap).toFixed(0)}" x2="930" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.5" opacity="0.5"/>`;
-      });
+      // one column of players: names right-aligned at xName, rating chip at xChip
+      const sideCol = (xName, xChip, list) => {
+        const rows = listRows(list, 9);
+        const top = 332, bottom = 905, gap = Math.min(60, (bottom - top) / Math.max(rows.length, 1));
+        const fs = Math.max(18, Math.min(30, Math.floor(gap * 0.52)));
+        const cw = 80;
+        let b = '';
+        rows.forEach((r, i) => {
+          const p = cells(r); const name = p[0] || '', rt = p[1] || '', rv = parseFloat(rt) || 0;
+          const bg = rv >= 7.5 ? C.navy : rv >= 6.5 ? C.yellow : C.red;
+          const fg = (rv >= 6.5 && rv < 7.5) ? C.navy : '#fff';
+          const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
+          b += `<text x="${xName}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(name)}</text>`;
+          b += `<rect x="${xChip}" y="${(cy - gap * 0.32).toFixed(0)}" width="${cw}" height="${(gap * 0.62).toFixed(0)}" rx="8" fill="${bg}"/>`;
+          b += `<text x="${xChip + cw / 2}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${fg}">${esc(rt)}</text>`;
+          if (i < rows.length - 1) b += `<line x1="${xChip}" y1="${(y + gap).toFixed(0)}" x2="${xName}" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.4"/>`;
+        });
+        return b || arBox(xChip, 420, xName - xChip, 300, 'غير متوفرة', 700, 26, '#7a8a74');
+      };
       return `
-    <rect x="360" y="150" width="360" height="72" rx="36" fill="${C.navy}"/>
-    ${arBox(360, 150, 360, 72, 'تقييمات اللاعبين', 900, 34, C.yellow)}
-    ${arBox(80, 232, 920, 46, d.team, 700, 30, '#13350c')}
-    ${rows.length ? body : arBox(80, 360, 920, 440, 'التقييمات غير متوفرة', 700, 38, '#7a8a74')}`;
+    <rect x="360" y="150" width="360" height="64" rx="32" fill="${C.navy}"/>
+    ${arBox(360, 150, 360, 64, 'تقييمات اللاعبين', 900, 32, C.yellow)}
+    ${compTitle(300, 256, d.homeTeam, d.homeLogo, 30, C.navy, { maxW: 420 })}
+    ${compTitle(780, 256, d.awayTeam, d.awayLogo, 30, C.navy, { maxW: 420 })}
+    <line x1="540" y1="300" x2="540" y2="905" stroke="${C.navy}" stroke-width="2" opacity="0.22"/>
+    ${sideCol(510, 90, d.home)}
+    ${sideCol(990, 570, d.away)}`;
     }
   },
 
-  // Today's fixtures list. list: "home | away | league | time | homeLogo? | awayLogo?" per line.
+  // Today's fixtures list. list: "home | away | league | time | homeLogo? | awayLogo? | leagueLogo?".
+  // Each row shows its league CREST (right); falls back to the league name if no logo.
   fixtures: {
     name: 'مباريات اليوم',
-    fields: ['date', 'comp', 'compLogo', 'list'],
+    fields: ['date', 'list'],
     content: d => {
       const rows = listRows(d.list, 12);
       const top = 330, bottom = 930, gap = Math.min(60, (bottom - top) / Math.max(rows.length, 1));
@@ -338,7 +347,7 @@ module.exports = {
       let body = '';
       rows.forEach((r, i) => {
         const p = cells(r);
-        const home = p[0] || '', away = p[1] || '', league = p[2] || '', time = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '';
+        const home = p[0] || '', away = p[1] || '', league = p[2] || '', time = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '', leagueLogo = p[6] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
         body += `<text x="95" y="${tb}" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(time)}</text>`;
         body += rowLogo(752, cy, homeLogo, lr);                    // home badge (right, toward league)
@@ -346,21 +355,23 @@ module.exports = {
         body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}" opacity="0.5">×</text>`;
         body += arBox(350, cy - gap / 2, 170, gap, away, 800, fs, C.navy);
         body += rowLogo(328, cy, awayLogo, lr);                    // away badge (left, toward time)
-        if (league) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(league)}</text>`;
+        if (has(leagueLogo)) body += rowLogo(963, cy, leagueLogo, lr);   // league crest (far right)
+        else if (league) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(league)}</text>`;
         if (i < rows.length - 1) body += `<line x1="95" y1="${(y + gap).toFixed(0)}" x2="985" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
       });
       return `
     <rect x="370" y="158" width="340" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(370, 158, 340, 72, 'مباريات اليوم', 900, 36, C.yellow)}
-    ${compTitle(540, 270, [d.comp, d.date].filter(has).join('   ·   '), d.compLogo, 30, '#13350c', { weight: 700 })}
+    ${arBox(80, 248, 920, 44, d.date, 700, 30, '#13350c')}
     ${body}`;
     }
   },
 
-  // Today's results list. list: "home | away | score | note | homeLogo? | awayLogo?" per line.
+  // Today's results list. list: "home | away | score | note | homeLogo? | awayLogo? | leagueLogo?".
+  // Each row shows its league CREST (right); falls back to the note/league name if no logo.
   results: {
     name: 'نتائج اليوم',
-    fields: ['date', 'comp', 'compLogo', 'list'],
+    fields: ['date', 'list'],
     content: d => {
       const rows = listRows(d.list, 10);
       const top = 330, bottom = 930, gap = Math.min(64, (bottom - top) / Math.max(rows.length, 1));
@@ -369,7 +380,7 @@ module.exports = {
       let body = '';
       rows.forEach((r, i) => {
         const p = cells(r);
-        const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '';
+        const home = p[0] || '', away = p[1] || '', score = p[2] || '', note = p[3] || '', homeLogo = p[4] || '', awayLogo = p[5] || '', leagueLogo = p[6] || '';
         const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
         // Free-plan: score may be missing (not played / data gap) → show a dash, no chip.
         // Score arrives "home - away", but the row is RTL (home on the right, away
@@ -388,13 +399,14 @@ module.exports = {
         body += arBox(575, cy - gap / 2, 190, gap, home, 800, fs, C.navy);
         body += arBox(315, cy - gap / 2, 190, gap, away, 800, fs, C.navy);
         body += rowLogo(288, cy, awayLogo, lr);                    // away badge (left)
-        if (note) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(note)}</text>`;
+        if (has(leagueLogo)) body += rowLogo(963, cy, leagueLogo, lr);   // league crest (far right)
+        else if (note) body += `<text x="985" y="${tb}" text-anchor="end" font-family="Cairo" font-weight="700" font-size="${fs - 6}" fill="#3a5a33">${esc(note)}</text>`;
         if (i < rows.length - 1) body += `<line x1="95" y1="${(y + gap).toFixed(0)}" x2="985" y2="${(y + gap).toFixed(0)}" stroke="${C.yellow}" stroke-width="1.2" opacity="0.55"/>`;
       });
       return `
     <rect x="330" y="158" width="420" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(330, 158, 420, 72, 'نتائج اليوم', 900, 34, C.yellow)}
-    ${compTitle(540, 270, [d.comp, d.date].filter(has).join('   ·   '), d.compLogo, 30, '#13350c', { weight: 700 })}
+    ${arBox(80, 248, 920, 44, d.date, 700, 30, '#13350c')}
     ${body}`;
     }
   },
