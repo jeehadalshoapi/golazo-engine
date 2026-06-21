@@ -266,8 +266,14 @@ function rowLogo(cx, cy, logo, r = 16) {
 // headerY = baseline of the header labels; opts.highlight = #rows to tint yellow
 // (top-N qualify, for group stage). Returns the header + body SVG.
 function tableRows(rows, top, bottom, opts = {}) {
-  const gap = Math.min(opts.maxGap || 72, (bottom - top) / Math.max(rows.length, 1));
-  const fs = Math.max(22, Math.min(opts.maxFs || 32, Math.floor(gap * (opts.fsMul || 0.42))));
+  // opts.splitAfter: insert a small dashed gap after this many rows (top-N | bottom-M view).
+  // opts.ranks: explicit rank per row (so the bottom rows keep their real positions).
+  // opts.promo / opts.releg + opts.totalTeams: color the rank chip green (top) / red (bottom).
+  const sepAfter = opts.splitAfter || 0;
+  const sepExtra = sepAfter ? 0.7 : 0;                       // gap height = 0.7 of a row
+  const units = rows.length + sepExtra;
+  const gap = Math.min(opts.maxGap || 72, (bottom - top) / Math.max(units, 1));
+  const fs = Math.max(18, Math.min(opts.maxFs || 32, Math.floor(gap * (opts.fsMul || 0.42))));
   const lr = Math.min(18, Math.round(fs * 0.62));          // crest radius
   const X = { rank: 968, logo: 924, team: 900, played: 470, gd: 320, pts: 165 };
   const hLabel = (x, t, a) => `<text x="${x}" y="${opts.headerY}" text-anchor="${a}" font-family="Cairo" font-weight="800" font-size="22" fill="#3a5a33">${t}</text>`;
@@ -275,11 +281,26 @@ function tableRows(rows, top, bottom, opts = {}) {
     hLabel(X.played, 'لعب', 'middle') + hLabel(X.gd, '+/-', 'middle') + hLabel(X.pts, 'نقاط', 'middle');
   rows.forEach((r, i) => {
     const c = cells(r);
-    const pos = i + 1, team = c[0] || '', played = c[1] || '', gd = c[2] || '', pts = c[3] || '', logo = c[4] || '';
-    const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
+    const pos = (opts.ranks && opts.ranks[i] != null) ? opts.ranks[i] : i + 1;
+    const team = c[0] || '', played = c[1] || '', gd = c[2] || '', pts = c[3] || '', logo = c[4] || '';
+    const extra = (sepAfter && i >= sepAfter) ? sepExtra * gap : 0;
+    const y = top + i * gap + extra, cy = y + gap / 2, tb = (cy + fs * 0.35).toFixed(1);
+    if (sepAfter && i === sepAfter) {
+      const sy = (y - sepExtra * gap / 2).toFixed(0);
+      body += `<line x1="120" y1="${sy}" x2="960" y2="${sy}" stroke="${C.navy}" stroke-width="2" stroke-dasharray="6 7" opacity="0.45"/>`;
+    }
     if (opts.highlight && i < opts.highlight) body += `<rect x="100" y="${y.toFixed(0)}" width="880" height="${gap.toFixed(0)}" rx="8" fill="${C.yellow}" opacity="0.20"/>`;
     else if (i % 2 === 0) body += `<rect x="100" y="${y.toFixed(0)}" width="880" height="${gap.toFixed(0)}" rx="8" fill="${C.navy}" opacity="0.05"/>`;
-    body += `<text x="${X.rank}" y="${tb}" text-anchor="end" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(pos)}</text>`;
+    // rank — green chip for promotion (top), red chip for relegation (bottom), else plain
+    const promo = opts.promo && pos <= opts.promo;
+    const releg = opts.releg && opts.totalTeams && pos > opts.totalTeams - opts.releg;
+    if (promo || releg) {
+      const rcx = X.rank - 10;
+      body += `<rect x="${(rcx - 17).toFixed(0)}" y="${(cy - gap * 0.30).toFixed(0)}" width="34" height="${(gap * 0.60).toFixed(0)}" rx="6" fill="${promo ? C.yellow : C.red}"/>`;
+      body += `<text x="${rcx}" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${promo ? C.navy : '#fff'}">${esc(pos)}</text>`;
+    } else {
+      body += `<text x="${X.rank}" y="${tb}" text-anchor="end" font-family="Anton" font-size="${fs + 2}" fill="${C.navy}">${esc(pos)}</text>`;
+    }
     body += rowLogo(X.logo, cy, logo, lr);
     body += `<text x="${X.team}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="800" font-size="${fs}" fill="${C.navy}">${esc(team)}</text>`;
     body += `<text x="${X.played}" y="${tb}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="${fs}" fill="#13350c">${esc(played)}</text>`;

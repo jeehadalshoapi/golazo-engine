@@ -12,15 +12,28 @@ const { C, W, esc, has, arBox, arBlock, arText, strW, blockTitle, crest, rowLogo
 
 module.exports = {
   // League table (already ordered top→down; rank is derived from row order).
-  // rows: one team per line — "team | played | GD | pts".
+  // rows: one team per line — "team | played | GD | pts | logo?". Shows the TOP 10
+  // and (after a dashed gap) the BOTTOM 3; rank chips are green for the top 3 and
+  // red for the bottom 3. Small leagues (≤13 teams) just show everyone.
   standing: {
     name: 'ترتيب الدوري',
     fields: ['comp', 'rows'],
-    content: d => `
+    content: d => {
+      const all = listRows(d.rows, 30);
+      const total = all.length, TOPN = 10, BOT = 3;
+      let shown = all, ranks = all.map((_, i) => i + 1), splitAfter = 0;
+      if (total > TOPN + BOT) {
+        const tops = all.slice(0, TOPN), bots = all.slice(total - BOT);
+        shown = tops.concat(bots);
+        ranks = tops.map((_, i) => i + 1).concat(bots.map((_, k) => total - BOT + 1 + k));
+        splitAfter = TOPN;
+      }
+      return `
     <rect x="350" y="158" width="380" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(350, 158, 380, 72, 'ترتيب الدوري', 900, 34, C.yellow)}
     ${arBox(80, 250, 920, 56, d.comp, 800, 40, C.navy)}
-    ${tableRows(listRows(d.rows, 8), 350, 930, { headerY: 335 })}`
+    ${tableRows(shown, 350, 930, { headerY: 335, ranks, splitAfter, promo: 3, releg: 3, totalTeams: total })}`;
+    }
   },
 
   // Group-stage table (UCL / World Cup). Same table, group-labelled, top-2 tinted.
