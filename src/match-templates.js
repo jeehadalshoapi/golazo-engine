@@ -8,7 +8,7 @@
  *   - Cups (UCL / World Cup) → `group` tables + `knockout` pairings; ALL matches
  *     posted (every cup match is important). See MATCH-pipeline.md.
  */
-const { C, W, esc, has, arBox, arBlock, arText, strW, blockTitle, crest, rowLogo, cells, listRows, tableRows } = require('./svg-helpers');
+const { C, W, esc, has, arBox, arBlock, arText, strW, blockTitle, crest, rowLogo, compTitle, cells, listRows, tableRows } = require('./svg-helpers');
 
 module.exports = {
   // League table (already ordered top→down; rank is derived from row order).
@@ -17,7 +17,7 @@ module.exports = {
   // red for the bottom 3. Small leagues (≤13 teams) just show everyone.
   standing: {
     name: 'ترتيب الدوري',
-    fields: ['comp', 'rows'],
+    fields: ['comp', 'compLogo', 'rows'],
     content: d => {
       const all = listRows(d.rows, 30);
       const total = all.length, TOPN = 10, BOT = 3;
@@ -31,7 +31,7 @@ module.exports = {
       return `
     <rect x="350" y="158" width="380" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(350, 158, 380, 72, 'ترتيب الدوري', 900, 34, C.yellow)}
-    ${arBox(80, 250, 920, 56, d.comp, 800, 40, C.navy)}
+    ${compTitle(540, 278, d.comp, d.compLogo, 40, C.navy)}
     ${tableRows(shown, 350, 930, { headerY: 335, ranks, splitAfter, promo: 3, releg: 3, totalTeams: total })}`;
     }
   },
@@ -40,10 +40,10 @@ module.exports = {
   // rows: "team | played | GD | pts" (≤6). One card per group → carousel.
   group: {
     name: 'دور المجموعات',
-    fields: ['comp', 'group', 'rows'],
+    fields: ['comp', 'compLogo', 'group', 'rows'],
     content: d => `
     <rect x="350" y="150" width="380" height="62" rx="31" fill="${C.navy}"/>
-    ${arBox(350, 150, 380, 62, d.comp || 'دور المجموعات', 800, 26, C.yellow)}
+    ${compTitle(540, 181, d.comp || 'دور المجموعات', d.compLogo, 26, C.yellow, { maxW: 360 })}
     <rect x="300" y="236" width="480" height="92" rx="12" fill="${C.yellow}"/>
     ${arBox(300, 236, 480, 92, d.group || 'المجموعة', 900, 50, C.navy)}
     ${tableRows(listRows(d.rows, 6), 420, 930, { headerY: 405, maxGap: 84, maxFs: 34, fsMul: 0.40, highlight: 2 })}`
@@ -54,7 +54,7 @@ module.exports = {
   // shows "ضد"). Teams show as their CREST (logo); falls back to the name if no logo.
   knockout: {
     name: 'الأدوار الإقصائية',
-    fields: ['comp', 'round', 'list'],
+    fields: ['comp', 'compLogo', 'round', 'list'],
     content: d => {
       const rows = listRows(d.list, 8);
       const top = 360, bottom = 930, gap = Math.min(104, (bottom - top) / Math.max(rows.length, 1));
@@ -79,7 +79,7 @@ module.exports = {
       return `
     <rect x="330" y="150" width="420" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(330, 150, 420, 72, 'الأدوار الإقصائية', 900, 32, C.yellow)}
-    ${arBox(80, 238, 920, 46, [d.comp, d.round].filter(has).join('   ·   '), 800, 34, C.navy)}
+    ${compTitle(540, 261, [d.comp, d.round].filter(has).join('   ·   '), d.compLogo, 34, C.navy)}
     ${body}`;
     }
   },
@@ -91,7 +91,7 @@ module.exports = {
   // (UCL R16 = 16 teams is comfy; World Cup R32 = 32 is dense — feed it from R16 if so).
   bracket: {
     name: 'شجرة الأدوار الإقصائية',
-    fields: ['comp', 'rounds', 'champion'],
+    fields: ['comp', 'compLogo', 'rounds', 'champion'],
     content: d => {
       const rounds = Array.isArray(d.rounds)
         ? d.rounds.filter(r => r && Array.isArray(r.matches) && r.matches.length)
@@ -99,7 +99,7 @@ module.exports = {
       const header = `
     <rect x="340" y="150" width="400" height="64" rx="32" fill="${C.navy}"/>
     ${arBox(340, 150, 400, 64, 'الأدوار الإقصائية', 900, 32, C.yellow)}
-    ${arBox(80, 222, 920, 42, d.comp, 800, 34, C.navy)}`;
+    ${compTitle(540, 243, d.comp, d.compLogo, 34, C.navy)}`;
       if (!rounds.length) return header + arBox(80, 430, 920, 160, 'لا توجد مباريات', 700, 40, '#7a8a74');
 
       const R = rounds.length;                  // last round = final (center column)
@@ -214,10 +214,10 @@ module.exports = {
   // Pre-match poster. comp/round + the two teams + kickoff. Logos via data: URI only.
   prematch: {
     name: 'قبل المباراة',
-    fields: ['comp', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'date', 'time', 'stadium'],
+    fields: ['comp', 'compLogo', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'date', 'time', 'stadium'],
     content: d => `
     ${blockTitle('MATCH', 'DAY')}
-    <text x="540" y="376" text-anchor="middle" font-family="Anton" font-size="62" fill="${C.navy}">${esc(d.comp)}</text>
+    ${compTitle(540, 358, d.comp, d.compLogo, 50, C.navy, { weight: 900 })}
     ${arBox(80, 392, 920, 40, d.round, 800, 30, '#13350c')}
     ${crest(245, 560, d.homeLogo)}
     ${crest(865, 560, d.awayLogo)}
@@ -236,18 +236,18 @@ module.exports = {
   // Full-time result. score + per-team event lines (goal/card — one per line).
   result: {
     name: 'نتيجة المباراة',
-    fields: ['comp', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'hs', 'as', 'homeEvents', 'awayEvents'],
+    fields: ['comp', 'compLogo', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'hs', 'as', 'homeEvents', 'awayEvents'],
     content: d => {
       const hE = listRows(d.homeEvents, 8), aE = listRows(d.awayEvents, 8);
       const n = Math.max(hE.length, aE.length, 1);
       let fs = Math.floor(150 / (n * 1.45)); fs = Math.max(14, Math.min(28, fs));
-      const col = (x, name, arr) =>
-        arBox(x, 778, 420, 40, name, 900, 28, C.navy) +
-        `<line x1="${x + 60}" y1="824" x2="${x + 360}" y2="824" stroke="${C.yellow}" stroke-width="3"/>` +
-        arBlock(x, 834, 420, 138, arr.join('\n'), 600, fs, '#13350c');
+      // team name is already shown in the score bar above — events list only here
+      const col = (x, arr) =>
+        `<line x1="${x + 60}" y1="800" x2="${x + 360}" y2="800" stroke="${C.yellow}" stroke-width="3"/>` +
+        arBlock(x, 812, 420, 160, arr.join('\n'), 600, fs, '#13350c');
       return `
     ${blockTitle('FULL', 'TIME')}
-    <text x="540" y="376" text-anchor="middle" font-family="Anton" font-size="62" fill="${C.navy}">${esc(d.comp)}</text>
+    ${compTitle(540, 358, d.comp, d.compLogo, 50, C.navy, { weight: 900 })}
     ${arBox(80, 392, 920, 40, d.round, 800, 30, '#13350c')}
     ${crest(245, 560, d.homeLogo)}
     ${crest(865, 560, d.awayLogo)}
@@ -260,8 +260,8 @@ module.exports = {
     <rect x="505" y="698" width="70" height="58" fill="${C.navy}"/>
     <text x="540" y="737" text-anchor="middle" font-family="Anton" font-size="30" fill="${C.yellow}">FT</text>
     ${arBox(570, 690, 300, 74, d.away, 900, 40, C.navy)}
-    ${col(80, d.home, hE)}
-    ${col(580, d.away, aE)}`;
+    ${col(80, hE)}
+    ${col(580, aE)}`;
     }
   },
 
@@ -329,7 +329,7 @@ module.exports = {
   // Today's fixtures list. list: "home | away | league | time | homeLogo? | awayLogo?" per line.
   fixtures: {
     name: 'مباريات اليوم',
-    fields: ['date', 'comp', 'list'],
+    fields: ['date', 'comp', 'compLogo', 'list'],
     content: d => {
       const rows = listRows(d.list, 12);
       const top = 330, bottom = 930, gap = Math.min(60, (bottom - top) / Math.max(rows.length, 1));
@@ -352,7 +352,7 @@ module.exports = {
       return `
     <rect x="370" y="158" width="340" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(370, 158, 340, 72, 'مباريات اليوم', 900, 36, C.yellow)}
-    ${arBox(80, 248, 920, 44, [d.comp, d.date].filter(has).join('   ·   '), 700, 30, '#13350c')}
+    ${compTitle(540, 270, [d.comp, d.date].filter(has).join('   ·   '), d.compLogo, 30, '#13350c', { weight: 700 })}
     ${body}`;
     }
   },
@@ -360,7 +360,7 @@ module.exports = {
   // Today's results list. list: "home | away | score | note | homeLogo? | awayLogo?" per line.
   results: {
     name: 'نتائج اليوم',
-    fields: ['date', 'comp', 'list'],
+    fields: ['date', 'comp', 'compLogo', 'list'],
     content: d => {
       const rows = listRows(d.list, 10);
       const top = 330, bottom = 930, gap = Math.min(64, (bottom - top) / Math.max(rows.length, 1));
@@ -394,7 +394,7 @@ module.exports = {
       return `
     <rect x="330" y="158" width="420" height="72" rx="36" fill="${C.navy}"/>
     ${arBox(330, 158, 420, 72, 'نتائج اليوم', 900, 34, C.yellow)}
-    ${arBox(80, 248, 920, 44, [d.comp, d.date].filter(has).join('   ·   '), 700, 30, '#13350c')}
+    ${compTitle(540, 270, [d.comp, d.date].filter(has).join('   ·   '), d.compLogo, 30, '#13350c', { weight: 700 })}
     ${body}`;
     }
   },

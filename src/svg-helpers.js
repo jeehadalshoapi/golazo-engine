@@ -259,6 +259,28 @@ function rowLogo(cx, cy, logo, r = 16) {
   return `<image href="${esc(u)}" x="${(cx - r).toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${(2 * r).toFixed(0)}" height="${(2 * r).toFixed(0)}" preserveAspectRatio="xMidYMid meet"/>`;
 }
 
+// Centered competition title with its league/cup crest beside the name. `logo` is
+// an api-football logo URL (server-embedded). Missing logo → plain centered text
+// (so it's backward compatible). Shrinks the font to keep logo+text within maxW.
+function compTitle(cx, cy, name, logo, fs, color, opts = {}) {
+  const weight = opts.weight || 800;
+  const maxW = opts.maxW || 900;
+  const nm = String(name == null ? '' : name);
+  const u = logoUri(logo);
+  let size = fs;
+  const widthAt = s => strW(nm, s) + (u ? (s * 1.44 + s * 0.4) : 0);
+  while (size > 14 && widthAt(size) > maxW) size -= 1;
+  const baseY = (cy + size * 0.34).toFixed(1);
+  if (!u) {
+    return `<text x="${cx}" y="${baseY}" text-anchor="middle" direction="rtl" font-family="Cairo" font-weight="${weight}" font-size="${size}" fill="${color}">${esc(nm)}</text>`;
+  }
+  const tw = strW(nm, size), r = size * 0.72, gap = size * 0.4;
+  const startX = cx - (2 * r + gap + tw) / 2;
+  const nameCx = startX + 2 * r + gap + tw / 2;
+  return `<image href="${esc(u)}" x="${startX.toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${(2 * r).toFixed(1)}" height="${(2 * r).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` +
+    `<text x="${nameCx.toFixed(1)}" y="${baseY}" text-anchor="middle" direction="rtl" font-family="Cairo" font-weight="${weight}" font-size="${size}" fill="${color}">${esc(nm)}</text>`;
+}
+
 // A standings/group table column layout shared by `standing` and `group`.
 // rows = array of "team | played | GD | pts | logo?" strings; rank is the row order.
 // The optional 5th cell is the team's api-football logo URL → a small crest is
@@ -314,5 +336,5 @@ function tableRows(rows, top, bottom, opts = {}) {
 module.exports = {
   C, W, H, esc, has,
   charW, strW, wrapLines, arText, arBox, arBlock, vstack,
-  frame, blockTitle, crest, rowLogo, cells, listRows, tableRows,
+  frame, blockTitle, crest, rowLogo, compTitle, cells, listRows, tableRows,
 };

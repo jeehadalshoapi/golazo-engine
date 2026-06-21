@@ -14,6 +14,8 @@ const { svgToPng } = require('./src/render');
 const { collectLogoUrls, resolveLogos } = require('./src/logos');
 
 const L = id => `https://media.api-sports.io/football/teams/${id}.png`;
+const Lg = id => `https://media.api-sports.io/football/leagues/${id}.png`;
+const CL = { epl: Lg(39), ucl: Lg(2), wc: Lg(1) };
 // a few real api-football team ids (logos for the visual test)
 const T = { rm: 541, bar: 529, city: 50, liv: 40, bay: 157, psg: 85, ars: 42, int: 505, che: 49, juv: 496, dor: 165, tot: 47, mil: 489, nap: 492, atm: 530, por: 212, bvb: 165, nwc: 34 };
 
@@ -24,7 +26,7 @@ const SAMPLES = {
   quote: { quote: 'نلعب من أجل اللقب حتى النهاية ولن نستسلم مهما كانت الصعوبات', author: 'بيب جوارديولا', role: 'مدرب مانشستر سيتي' },
   cover: { title: 'موجز اليوم', subtitle: 'أبرز أخبار الانتقالات', date: 'الجمعة 12 أغسطس' },
   standing: {
-    comp: 'الدوري الإنجليزي',
+    comp: 'الدوري الإنجليزي', compLogo: CL.epl,
     rows: [
       `ليفربول | 24 | +38 | 60 | ${L(T.liv)}`,
       `أرسنال | 24 | +25 | 52 | ${L(T.ars)}`,
@@ -46,7 +48,7 @@ const SAMPLES = {
     ].join('\n'),
   },
   group: {
-    comp: 'دوري أبطال أوروبا', group: 'المجموعة A',
+    comp: 'دوري أبطال أوروبا', compLogo: CL.ucl, group: 'المجموعة A',
     rows: [
       `ريال مدريد | 6 | +11 | 16 | ${L(T.rm)}`,
       `مان سيتي | 6 | +7 | 13 | ${L(T.city)}`,
@@ -55,7 +57,7 @@ const SAMPLES = {
     ].join('\n'),
   },
   knockout: {
-    comp: 'دوري أبطال أوروبا', round: 'ربع النهائي',
+    comp: 'دوري أبطال أوروبا', compLogo: CL.ucl, round: 'ربع النهائي',
     list: [
       `ريال مدريد | مان سيتي | 3 - 2 | ${L(T.rm)} | ${L(T.city)}`,
       `بايرن ميونخ | باريس سان جيرمان | 1 - 1 | ${L(T.bay)} | ${L(T.psg)}`,
@@ -64,7 +66,7 @@ const SAMPLES = {
     ].join('\n'),
   },
   bracket: {
-    comp: 'دوري أبطال أوروبا',
+    comp: 'دوري أبطال أوروبا', compLogo: CL.ucl,
     champion: 'ريال مدريد',
     rounds: [
       { title: 'ربع النهائي', matches: [
@@ -82,12 +84,12 @@ const SAMPLES = {
       ]},
     ],
   },
-  prematch: { comp: 'دوري أبطال أوروبا', round: 'نصف النهائي — ذهاب', home: 'ريال مدريد', away: 'مان سيتي', homeLogo: L(T.rm), awayLogo: L(T.city), date: 'الثلاثاء 12 أغسطس', time: '10:00 مساءً', stadium: 'سانتياغو برنابيو' },
-  result: { comp: 'دوري أبطال أوروبا', round: 'نصف النهائي', home: 'ريال مدريد', away: 'مان سيتي', homeLogo: L(T.rm), awayLogo: L(T.city), hs: '3', as: '1', homeEvents: 'بيلينغهام 23\nفينيسيوس 56\nرودريغو 78', awayEvents: 'هالاند 90+2' },
+  prematch: { comp: 'دوري أبطال أوروبا', compLogo: CL.ucl, round: 'نصف النهائي — ذهاب', home: 'ريال مدريد', away: 'مان سيتي', homeLogo: L(T.rm), awayLogo: L(T.city), date: 'الثلاثاء 12 أغسطس', time: '10:00 مساءً', stadium: 'سانتياغو برنابيو' },
+  result: { comp: 'دوري أبطال أوروبا', compLogo: CL.ucl, round: 'نصف النهائي', home: 'ريال مدريد', away: 'مان سيتي', homeLogo: L(T.rm), awayLogo: L(T.city), hs: '3', as: '1', homeEvents: 'بيلينغهام 23\nفينيسيوس 56\nرودريغو 78', awayEvents: 'هالاند 90+2' },
   matchstats: { home: 'ريال مدريد', away: 'مان سيتي', score: '3 - 1', stats: 'الاستحواذ % | 52 | 48\nالتسديدات | 14 | 11\nعلى المرمى | 6 | 4\nالركنيات | 7 | 5\nالأخطاء | 11 | 13\nxG | 2.3 | 1.4' },
   ratings: { team: 'ريال مدريد أمام مان سيتي — تقييمات الأداء', list: 'كورتوا | 7.2\nكاريخال | 7.8\nفينيسيوس | 8.7\nبيلينغهام | 8.4\nرودريغو | 7.6\nفالفيردي | 7.9\nمودريتش | 7.0\nروديغر | 6.8' },
   fixtures: {
-    date: 'الجمعة 12 أغسطس 2026', comp: 'مباريات مختارة',
+    date: 'الجمعة 12 أغسطس 2026', comp: 'مباريات مختارة', compLogo: CL.epl,
     list: [
       `ريال مدريد | برشلونة | الليغا | 11:00 م | ${L(T.rm)} | ${L(T.bar)}`,
       `مان سيتي | ليفربول | البريميرليغ | 6:30 م | ${L(T.city)} | ${L(T.liv)}`,
@@ -96,7 +98,7 @@ const SAMPLES = {
     ].join('\n'),
   },
   results: {
-    date: 'الجمعة 12 أغسطس 2026', comp: 'نتائج مختارة',
+    date: 'الجمعة 12 أغسطس 2026', comp: 'نتائج مختارة', compLogo: CL.epl,
     list: [
       `ريال مدريد | برشلونة | 2 - 1 | الليغا | ${L(T.rm)} | ${L(T.bar)}`,
       `مان سيتي | ليفربول | 1 - 0 | البريميرليغ | ${L(T.city)} | ${L(T.liv)}`,
