@@ -110,7 +110,9 @@ app.post('/render-roundup', async (req, res) => {
     const items = Array.isArray(body.items) ? body.items.slice() : [];
     if (body.cover) items.unshift({ template: 'cover', data: body.cover });
     if (!items.length) return res.status(400).json({ error: 'no items' });
-    if (items.length > 12) return res.status(400).json({ error: 'too many items', max: 12 });
+    // Brand-voice outro at the tail of every scroll (pass brand:false to skip).
+    if (body.brand !== false) items.push({ template: 'brand', data: {} });
+    if (items.length > 20) return res.status(400).json({ error: 'too many items', max: 20 });
     sweep();
     const urls = [];
     for (const it of items) {

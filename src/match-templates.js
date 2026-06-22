@@ -216,7 +216,7 @@ module.exports = {
     fields: ['comp', 'compLogo', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'date', 'time', 'stadium'],
     content: d => `
     ${blockTitle('MATCH', 'DAY')}
-    ${compTitle(540, 358, d.comp, d.compLogo, 50, C.navy, { weight: 900 })}
+    ${has(d.compLogo) ? rowLogo(540, 345, d.compLogo, 44) : arBox(80, 322, 920, 46, d.comp, 800, 34, C.navy)}
     ${arBox(80, 392, 920, 40, d.round, 800, 30, '#13350c')}
     ${crest(245, 560, d.homeLogo)}
     ${crest(865, 560, d.awayLogo)}
@@ -246,7 +246,7 @@ module.exports = {
         arBlock(x, 812, 420, 160, arr.join('\n'), 600, fs, '#13350c');
       return `
     ${blockTitle('FULL', 'TIME')}
-    ${compTitle(540, 358, d.comp, d.compLogo, 50, C.navy, { weight: 900 })}
+    ${has(d.compLogo) ? rowLogo(540, 345, d.compLogo, 44) : arBox(80, 322, 920, 46, d.comp, 800, 34, C.navy)}
     ${arBox(80, 392, 920, 40, d.round, 800, 30, '#13350c')}
     ${crest(245, 560, d.homeLogo)}
     ${crest(865, 560, d.awayLogo)}
@@ -312,8 +312,8 @@ module.exports = {
         if (rows.length > 10) { rows = rows.slice(0, 7).concat(rows.slice(-3)); splitAfter = 7; }
         const top = 332, bottom = 905, sepExtra = splitAfter ? 0.7 : 0;
         const gap = Math.min(60, (bottom - top) / Math.max(rows.length + sepExtra, 1));
-        const fs = Math.max(18, Math.min(30, Math.floor(gap * 0.52)));
-        const cw = 80;
+        const fs = Math.max(18, Math.min(34, Math.floor(gap * 0.58)));
+        const cw = 84;
         let b = '';
         rows.forEach((o, i) => {
           const bg = o.rv >= 7.5 ? C.navy : o.rv >= 6.5 ? C.yellow : C.red;
@@ -334,8 +334,8 @@ module.exports = {
       return `
     <rect x="360" y="150" width="360" height="64" rx="32" fill="${C.navy}"/>
     ${arBox(360, 150, 360, 64, 'تقييمات اللاعبين', 900, 32, C.yellow)}
-    ${compTitle(300, 256, d.homeTeam, d.homeLogo, 30, C.navy, { maxW: 420 })}
-    ${compTitle(780, 256, d.awayTeam, d.awayLogo, 30, C.navy, { maxW: 420 })}
+    ${compTitle(300, 256, d.homeTeam, d.homeLogo, 36, C.navy, { maxW: 430 })}
+    ${compTitle(780, 256, d.awayTeam, d.awayLogo, 36, C.navy, { maxW: 430 })}
     <line x1="540" y1="300" x2="540" y2="905" stroke="${C.navy}" stroke-width="2" opacity="0.22"/>
     ${sideCol(510, 90, d.home)}
     ${sideCol(990, 570, d.away)}`;

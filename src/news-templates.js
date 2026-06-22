@@ -94,7 +94,18 @@ module.exports = {
     ${vstack(280, 830, [
       { h: 180, render: y => arBox(90, y, 900, 180, d.title || 'أبرز أخبار اليوم', 900, 86, C.navy) },
       { h: 6, gap: 26, render: y => `<rect x="360" y="${y.toFixed(0)}" width="360" height="6" fill="${C.yellow}"/>` },
-      { h: 52, gap: 44, render: y => arBox(90, y, 900, 52, 'اسحب للمزيد ←', 800, 34, '#13350c') },
+      { h: 52, gap: 44, render: y => arBox(90, y, 900, 52, 'اسحب للمزيد', 800, 34, '#13350c') },
+    ])}`
+  },
+  // Brand-voice outro slide — appended to the tail of every carousel (scroll).
+  brand: {
+    name: 'الهوية',
+    fields: [],
+    content: d => `
+    ${vstack(300, 820, [
+      { h: 180, render: y => `<text x="540" y="${(y + 150).toFixed(0)}" text-anchor="middle" font-family="Anton" font-size="170" fill="${C.navy}">GOLAZO!</text>` },
+      { h: 6, gap: 30, render: y => `<rect x="360" y="${y.toFixed(0)}" width="360" height="6" fill="${C.yellow}"/>` },
+      { h: 60, gap: 34, render: y => arBox(90, y, 900, 60, 'تابعنا لكل جديد', 900, 46, C.navy) },
     ])}`
   }
 };

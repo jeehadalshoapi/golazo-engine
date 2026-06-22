@@ -17,7 +17,10 @@ const { logoUri } = require('./logos');
 /* ===== brand constants ===== */
 const C = { navy: '#0D3D07', yellow: '#7DDB5B', red: '#E63946', paper: '#FFFFFF' };
 const W = 1080, H = 1080;
+// Arabic-Indic digits → Western, so every card renders English numerals.
+const AR_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','٫':'.','٬':',' };
 const esc = s => String(s == null ? '' : s)
+  .replace(/[٠-٩٫٬]/g, ch => AR_DIGITS[ch] || ch)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // True when a field carries a real value — used to omit empty elements so a card
 // never shows a dangling label (e.g. "المصدر: " with nothing after it).
@@ -268,13 +271,13 @@ function compTitle(cx, cy, name, logo, fs, color, opts = {}) {
   const nm = String(name == null ? '' : name);
   const u = logoUri(logo);
   let size = fs;
-  const widthAt = s => strW(nm, s) + (u ? (s * 1.44 + s * 0.4) : 0);
+  const widthAt = s => strW(nm, s) + (u ? (s * 1.9 + s * 0.4) : 0);
   while (size > 14 && widthAt(size) > maxW) size -= 1;
   const baseY = (cy + size * 0.34).toFixed(1);
   if (!u) {
     return `<text x="${cx}" y="${baseY}" text-anchor="middle" direction="rtl" font-family="Cairo" font-weight="${weight}" font-size="${size}" fill="${color}">${esc(nm)}</text>`;
   }
-  const tw = strW(nm, size), r = size * 0.72, gap = size * 0.4;
+  const tw = strW(nm, size), r = size * 0.95, gap = size * 0.4;
   const startX = cx - (2 * r + gap + tw) / 2;
   const nameCx = startX + 2 * r + gap + tw / 2;
   return `<image href="${esc(u)}" x="${startX.toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${(2 * r).toFixed(1)}" height="${(2 * r).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` +
@@ -296,7 +299,7 @@ function tableRows(rows, top, bottom, opts = {}) {
   const units = rows.length + sepExtra;
   const gap = Math.min(opts.maxGap || 72, (bottom - top) / Math.max(units, 1));
   const fs = Math.max(18, Math.min(opts.maxFs || 32, Math.floor(gap * (opts.fsMul || 0.42))));
-  const lr = Math.min(18, Math.round(fs * 0.62));          // crest radius
+  const lr = Math.min(22, Math.round(fs * 0.8));           // crest radius (bigger)
   const X = { rank: 968, logo: 924, team: 900, played: 470, gd: 320, pts: 165 };
   const hLabel = (x, t, a) => `<text x="${x}" y="${opts.headerY}" text-anchor="${a}" font-family="Cairo" font-weight="800" font-size="22" fill="#3a5a33">${t}</text>`;
   let body = hLabel(X.rank, '#', 'end') + hLabel(X.team, 'الفريق', 'end') +
