@@ -105,7 +105,7 @@ module.exports = {
     ${vstack(300, 820, [
       { h: 180, render: y => `<text x="540" y="${(y + 150).toFixed(0)}" text-anchor="middle" font-family="Anton" font-size="170" fill="${C.navy}">GOLAZO!</text>` },
       { h: 6, gap: 30, render: y => `<rect x="360" y="${y.toFixed(0)}" width="360" height="6" fill="${C.yellow}"/>` },
-      { h: 60, gap: 34, render: y => arBox(90, y, 900, 60, 'تابعنا لكل جديد', 900, 46, C.navy) },
+      { h: 200, gap: 34, render: y => arBox(90, y, 900, 200, 'نحلل كرة القدم بالأرقام لا بالضجيج. هنا تجد الحقيقة خلف كل مباراة.', 700, 44, C.navy) },
     ])}`
   }
 };
