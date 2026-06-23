@@ -6,30 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The service is implemented (`package.json`, `src/`, `server.js`, `fonts/` all present),
 deployed on **Railway** (public repo `golazo-engine`), and wired into a working **n8n**
-pipeline that publishes to **Buffer (Facebook/Instagram/X)**. `5★` singles publish
-**directly** (no approval); the nightly roundup is gated by an **inline Telegram approval**
-("Send and Wait for Response"). See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
+pipeline that publishes to **Buffer (Facebook/Instagram/X)**. At launch both `5★` singles and the
+nightly roundup publish **directly** (no approval gate); Telegram is kept as a **review copy** only.
+See `PROJECT-SUMMARY.md` for the full build log + every problem/fix.
 
-**Status (2026-06-16): NEWS core LIVE; MATCH pipeline PAUSED on the paid api-football plan.**
+**Status (2026-06-23): NEWS core LIVE; MATCH pipeline BUILT — in LAUNCH stage (paid api-football plan active).**
 NEWS: `5★` posts instantly as a single; `3–4★` accumulates in Postgres → nightly **roundup
-carousel** (9 PM Riyadh, inline Telegram approval); `<3` dropped. All to FB/IG/X via Buffer.
-Part 1 (importance+hashtags+filter) + Part 2 (roundup) DONE; Part 3 partial. TikTok deferred.
+carousel** (9 PM Riyadh); `<3` dropped. All to FB/IG/X via Buffer.
 
-**MATCH pipeline (api-football) — IN PROGRESS, paused here:** the **renderer is fully built**
-(9 match templates + logos + free-plan degradation, all in this repo). The **n8n side is in a
-PREVIEW phase** (each workflow ends at a **binary Telegram `sendPhoto`** — no Buffer, no approval
-yet). **Built & working: #1 fixtures, #2 results, #4 pre-match, #5 post-match.** Data comes from
-**`golazo-server`** (a caching proxy; n8n reads its HTTP endpoints, never api-football directly).
-⛔ **We stopped because the free api-football plan lacks `standings`/`statistics`/`players`** — so
-`top5` is empty (domestic-league matches filter out; only World Cup/UCL flow), and the
-`matchstats`/`ratings`/`standing`/`group` cards have no data. **Resume when the PAID plan lands:**
-(1) those gaps auto-fill with **zero code changes**; (2) build the remaining workflows **#3
-standings + #6 cups**; (3) go-live swap (binary preview tail → Buffer tail + Telegram approval;
-pre-match per-match 3h-before timing + dedup). Exact done/blocked/remaining list is in `tasks.md`;
-node-by-node build steps in `MATCH-pipeline-build.md`; design in `MATCH-pipeline.md`.
+**MATCH pipeline (api-football):** the **renderer is fully built** — **10 templates** (incl. the
+`bracket` tree) + server-side logo embedding + graceful degradation, all in this repo. **All n8n
+workflows are built** (fixtures, results, standings, pre-match, post-match, group, knockout,
+bracket). The launch tail = render → **Telegram review copy + Buffer publish** (per-platform
+hashtags + a brand outro slide). Data comes from **`golazo-server`** (a caching proxy; n8n reads
+its HTTP endpoints, never api-football directly).
+**Dedup** is Postgres-based — `posted_matches` (pre/post-match), `posted_stages` (knockout/bracket
+rounds), `posted_content` (hash, for the refresh cards). ⚠️ n8n's Postgres node emits
+`{ success:true }` on `ON CONFLICT DO NOTHING` (0 rows), so **every dedup gate MUST be followed by an
+`IF` (returned column is-not-empty)** — the gate alone never drops. Remaining: finish wiring the IFs,
+set schedules + activate, rotate tokens, move the WC-logo override into golazo-server.
 
-**Most of the system lives in n8n, not this repo** — the live n8n architecture + every problem/fix
-are in `PROJECT-SUMMARY.md`; the phased status + remaining work are in `tasks.md`. Read both.
+**Most of the system lives in n8n, not this repo.** Rebuild blueprint: `N8N-BUILD-SPEC.md`.
+Publishing logic (formats, stage/round dedup): `MATCH-publishing-logic.md`. Current handoff /
+open issues: `LAUNCH-STATUS.md`. Live n8n architecture + every problem/fix: `PROJECT-SUMMARY.md`.
 
 ## What this builds
 
@@ -71,14 +70,17 @@ POST /render { template, data }
   lives in three split files:
   - **`src/svg-helpers.js`** — the shared engine: brand constants (`C`, `W=1080`, `H=1080`,
     `esc`, `has`), text helpers (`charW`/`strW`/`wrapLines`/`arText`/`arBox`/`arBlock`), `vstack`,
-    the ported `frame`, and the match helpers (`blockTitle`, `crest`, `cells`/`listRows`,
-    `tableRows`). Two behaviors to know before editing a body: `arText` **auto-shrinks** the font
+    the ported `frame`, and the match helpers (`blockTitle`, `crest`, `rowLogo`, `compTitle`,
+    `cells`/`listRows`, `tableRows`). `esc()` also converts Arabic-Indic digits → Western so every
+    card shows English numerals. `compTitle` draws the competition logo beside its name; `tableRows`
+    supports a top-N + bottom-M split with green/red rank chips. Two behaviors to know before editing
+    a body: `arText` **auto-shrinks** the font
     (1px steps, down to `minSize`) until the wrapped block fits its box; `vstack(top, bottom, blocks)`
     vertically centers blocks — pass each optional one as `has(field) ? {...} : null` so missing
     fields recenter instead of leaving a hole. `tableRows` is the shared standings/group table body.
   - **`src/news-templates.js`** — `breaking`/`confirmed`/`rumors`/`quote` + the roundup `cover`.
-  - **`src/match-templates.js`** — `standing`/`group`/`knockout`/`prematch`/`result`/`matchstats`/
-    `ratings`/`fixtures`/`results`.
+  - **`src/match-templates.js`** — `standing`/`group`/`knockout`/`bracket`/`prematch`/`result`/
+    `matchstats`/`ratings`/`fixtures`/`results` (10 templates; `bracket` = the two-sided knockout tree).
 - **`src/render.js`** — only the resvg wrapper. Fonts referenced by **absolute path**
   (`path.join(__dirname, '..', 'fonts')`), `loadSystemFonts: false`, `defaultFontFamily: 'Cairo'`.
 - **`server.js`** — HTTP only (routing, validation, error mapping). `express.json({limit:'256kb'})`.
@@ -92,22 +94,24 @@ fifth `cover` template (in `TEMPLATES`, adapted from the studio `brand` template
 `POST /render-roundup`. DeepSeek also emits `importance` (1–5) and `hashtags`. **Postgres** (on
 Railway, table `roundup_news`) is the state store for accumulating roundup items + dedup.
 
-The **MATCH pipeline** templates are now **built in the renderer** (not deferred): `standing`,
-`group`, `knockout`, `prematch`, `result`, `matchstats`, `ratings`, `fixtures`, `results` — all
-native-SVG ports of the Studio bodies (the Studio versions use `<foreignObject>` and must NOT be
-copied verbatim). Two competition kinds: **leagues** (Roshn + Top-5 European) use `standing` and
-gate per-match cards by a top-5 filter; **cups** (UCL, World Cup) post **all** matches and show
-structure via `group` (group stage) + `knockout` (the draw/bracket per round). Their **n8n
-orchestration is specced but not built** — see `MATCH-pipeline.md` (endpoint map, schedules, the
-filter rules, payload mapping). Data source: a separate Railway project runs **`golazo-server`** (an
+The **MATCH pipeline** templates are **built in the renderer**: `standing`, `group`, `knockout`,
+`bracket`, `prematch`, `result`, `matchstats`, `ratings`, `fixtures`, `results` — all native-SVG
+ports of the Studio bodies (the Studio versions use `<foreignObject>` and must NOT be copied
+verbatim). Two competition kinds: **leagues** (Roshn + Top-5 European, plus the UCL league phase)
+use `standing` and gate per-match cards by a top-5 filter; **cups** (World Cup; UCL knockout) post
+**all** matches and show structure via `group` (group stage) + `knockout`/`bracket`. Their **n8n
+orchestration is BUILT (launch stage)** — the click-by-click rebuild blueprint is `N8N-BUILD-SPEC.md`,
+and the when/what-to-publish rules are in `MATCH-publishing-logic.md` (`MATCH-pipeline.md` is the
+older design). Data source: a separate Railway project runs **`golazo-server`** (an
 Express+Redis **caching proxy** for api-football that feeds the WC-2026 mobile app and returns
 api-football responses **verbatim**); **n8n reads the same `golazo-server` HTTP endpoints the app
 uses** (single source of truth, free-tier-safe via Redis caching — n8n never calls api-football or
-touches Redis). On the free plan many
-fields are missing, so cards **degrade gracefully** (missing score → "—", empty stats/ratings →
-"غير متوفرة", missing logos → placeholder) and carousels **skip empty slides** (e.g. post-match may
-be just the `result` card). The HYBRID/DATA studio templates and TikTok remain **deferred — do not
-build them now**.
+touches Redis). The **paid api-football plan is active**, so `standings`/`statistics`/`players`
+now return data; cards still **degrade gracefully** for the odd gap (missing score → "—", empty
+stats/ratings → "غير متوفرة", missing logos → placeholder) and carousels **skip empty slides**.
+**api-football has no real World Cup logo** (league id 1 → placeholder), so the engine hosts one at
+`/asset/worldcup.png` and n8n overrides via `COMP_LOGO[1]`. The HYBRID/DATA studio templates and
+TikTok remain **deferred — do not build them now**.
 
 **Team logos:** resvg can't fetch remote images, so the server embeds them — `src/logos.js`
 fetches each api-football logo URL once, base64-caches it in-memory, and `server.js` calls
@@ -125,7 +129,8 @@ shield (crest) or omitted (rows).
 | POST | `/render` | `{ template, data }` | `image/png` binary (Telegram path) |
 | POST | `/render-url` | `{ template, data }` | `{ id, url }` — hosts the PNG in a 6h in-memory cache (Buffer needs a URL, not binary) |
 | GET | `/img/:id.png` | — | `image/png` (serves a hosted render; **public** — the id is the secret) |
-| POST | `/render-roundup` | `{ cover?, items:[{template,data}] }` | `{ count, urls }` — renders `cover` (prepended) + each card, returns the ordered hosted-URL list (daily carousel). Empty list → 400; >12 items → 400 |
+| GET | `/asset/:file` | — | static brand/competition assets (e.g. `/asset/worldcup.png`); **public**, served from `assets/` |
+| POST | `/render-roundup` | `{ cover?, items:[{template,data}], brand? }` | `{ count, urls }` — renders `cover` (prepended) + each card + a **`brand` outro** appended (pass `brand:false` to skip), returns the ordered hosted-URL list. Empty → 400; >20 items → 400 |
 
 Errors use shape `{ error, detail }`. Unknown template → 400 with `available:[...]`.
 If env `RENDER_TOKEN` is set, `/render`, `/render-url`, `/render-roundup` require header
@@ -139,6 +144,7 @@ npm install            # express + @resvg/resvg-js
 npm start              # node server.js — listens on PORT (default 3000)
 node test_cards.js     # (or: npm run test:cards) renders one sample PNG per template to ./out/card_*.png — open and eyeball
 node test_cards.js DIR # optional: write the samples to DIR instead of ./out
+node gallery.js        # renders EVERY template (real engine + logos embedded) into a self-contained gallery.html — the fast visual review tool (gitignored)
 
 # smoke test a running server
 curl -X POST http://localhost:3000/render \
@@ -161,12 +167,14 @@ and the full frame (decorations + hashtag chip + footer `الكرة بالأرق
 
 ## Source-of-truth docs
 
-**To understand current state first:** `PROJECT-SUMMARY.md` (live pipeline diagram + build log +
-every problem/fix) and `tasks.md` (what's done / what's remaining + the live n8n architecture).
-**Strategy/decisions:** `golazo_posting_strategy.md` (the locked posting strategy — importance
-routing, 9 PM roundup, caps). **MATCH pipeline:** `MATCH-pipeline.md` (design spec — leagues,
-top-5 filter, golazo-server data layer, payload mapping) + `MATCH-pipeline-build.md` (the
-click-by-click n8n build for every MATCH workflow, preview phase).
+**To understand current state first:** `LAUNCH-STATUS.md` (current handoff — done / open issues /
+remaining), then `PROJECT-SUMMARY.md` (live pipeline diagram + build log + every problem/fix) and
+`tasks.md` (phased status + live n8n architecture).
+**Rebuilding the n8n side:** `N8N-BUILD-SPEC.md` (the consolidated, current blueprint for all
+workflows — shared tail, the **dedup gate + IF** pattern, schedules) and `MATCH-publishing-logic.md`
+(what/when to publish — competition formats, publish-each-stage/round-once dedup). These two
+**supersede** the older `MATCH-pipeline.md` / `MATCH-pipeline-build.md` where they disagree.
+**Strategy/decisions:** `golazo_posting_strategy.md` (importance routing, 9 PM roundup, caps).
 
 **For the renderer internals:** `agent.md` (role + the foreignObject rule) → `planning.md`
 (architecture/decisions) → `rules.md` (hard rules) → `design.md` (exact algorithms + template
