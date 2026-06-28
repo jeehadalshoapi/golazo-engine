@@ -143,7 +143,6 @@ module.exports = {
       let body = '';
       const drawBox = (cx, cy, m) => {
         const x = cx - bw / 2, y = cy - boxH / 2, rh = boxH / 2;
-        const hs = has(m.hs) ? '  ' + m.hs : '', as = has(m.as) ? '  ' + m.as : '';
         // winner (advancing team) gets a yellow row tint so the path is traceable
         const hn = parseFloat(m.hs), an = parseFloat(m.as);
         const hWin = !isNaN(hn) && !isNaN(an) && hn > an, aWin = !isNaN(hn) && !isNaN(an) && an > hn;
@@ -151,12 +150,18 @@ module.exports = {
         if (hWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + 1.5).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
         if (aWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + rh).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
         body += `<line x1="${x.toFixed(1)}" y1="${(y + rh).toFixed(1)}" x2="${(x + bw).toFixed(1)}" y2="${(y + rh).toFixed(1)}" stroke="${C.navy}" stroke-width="0.8" opacity="0.25"/>`;
-        const lr2 = Math.min(13, Math.round(rh * 0.42));
-        const nx = x + 6 + lr2 * 2 + 2, nw = bw - lr2 * 2 - 16;
-        if (has(m.homeLogo)) body += rowLogo(x + 6 + lr2, y + rh / 2, m.homeLogo, lr2);
-        if (has(m.awayLogo)) body += rowLogo(x + 6 + lr2, y + rh + rh / 2, m.awayLogo, lr2);
-        body += arText(nx, y, nw, rh, (m.home || '') + hs, hWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
-        body += arText(nx, y + rh, nw, rh, (m.away || '') + as, aWin ? 900 : 700, fs, C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.05 });
+        // CREST-ONLY: logo (left) + score (right). Short name only if a logo is missing.
+        const lr2 = Math.max(8, Math.min(Math.round(rh * 0.42), Math.round(bw * 0.2)));
+        const sfs = Math.max(11, Math.min(22, Math.floor(rh * 0.52)));
+        const row = (cyRow, logo, name, score, win) => {
+          let s = '';
+          if (has(logo)) s += rowLogo(x + 8 + lr2, cyRow, logo, lr2);
+          else s += arText(x + 8, cyRow - rh / 2, bw * 0.6, rh, (name || '').slice(0, 12), win ? 900 : 700, Math.min(fs, 13), C.navy, { align: 'left', valign: 'center', minSize: 9, lh: 1.0 });
+          if (has(score)) s += `<text x="${(x + bw - 8).toFixed(1)}" y="${(cyRow + sfs * 0.34).toFixed(1)}" text-anchor="end" font-family="Anton" font-size="${sfs}" fill="${win ? C.navy : '#3a5a33'}">${esc(score)}</text>`;
+          return s;
+        };
+        body += row(y + rh / 2, m.homeLogo, m.home, m.hs, hWin);
+        body += row(y + rh + rh / 2, m.awayLogo, m.away, m.as, aWin);
       };
       // connector elbow: two children in column jChild → one parent in next column toward center
       const connect = (children, parents, jChild, side) => {
