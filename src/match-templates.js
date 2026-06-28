@@ -102,7 +102,7 @@ module.exports = {
       if (!rounds.length) return header + arBox(80, 430, 920, 160, 'لا توجد مباريات', 700, 40, '#7a8a74');
 
       const R = rounds.length;                  // last round = final (center column)
-      const M = 44, topY = 300, botY = 944;
+      const M = 40, topY = 296, botY = 974;
       const totalCols = 2 * (R - 1) + 1;
       const colW = (W - 2 * M) / totalCols;
       const colCx = k => M + colW * (k + 0.5);
@@ -134,8 +134,8 @@ module.exports = {
       const lLast = (L[R - 2] || [])[0], rLast = (Rt[R - 2] || [])[0];
       const finalCy = (lLast && rLast) ? (lLast.cy + rLast.cy) / 2 : (topY + botY) / 2;
 
-      const boxH = Math.max(28, Math.min(72, gap0 * 0.66));
-      const bw = colW - 14;
+      const boxH = Math.max(34, Math.min(96, gap0 * 0.82));
+      const bw = colW - 10;
       const fs = Math.max(10, Math.min(17, Math.floor(boxH * 0.26)));
       const line = (x1, y1, x2, y2) =>
         `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${C.navy}" stroke-width="1.4" opacity="0.4"/>`;
@@ -151,13 +151,17 @@ module.exports = {
         if (aWin) body += `<rect x="${(x + 1.5).toFixed(1)}" y="${(y + rh).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(rh - 1.5).toFixed(1)}" rx="5" fill="${C.yellow}" opacity="0.45"/>`;
         body += `<line x1="${x.toFixed(1)}" y1="${(y + rh).toFixed(1)}" x2="${(x + bw).toFixed(1)}" y2="${(y + rh).toFixed(1)}" stroke="${C.navy}" stroke-width="0.8" opacity="0.25"/>`;
         // CREST-ONLY: logo (left) + score (right). Short name only if a logo is missing.
-        const lr2 = Math.max(8, Math.min(Math.round(rh * 0.42), Math.round(bw * 0.2)));
-        const sfs = Math.max(11, Math.min(22, Math.floor(rh * 0.52)));
+        // crest fills the half-row (bigger now that names are gone); centered when
+        // there's no score yet (live draw), shifted left to make room when scored.
+        const lr2 = Math.max(10, Math.min(Math.round(rh * 0.46), Math.round(bw * 0.32)));
+        const sfs = Math.max(12, Math.min(28, Math.floor(rh * 0.64)));
         const row = (cyRow, logo, name, score, win) => {
           let s = '';
-          if (has(logo)) s += rowLogo(x + 8 + lr2, cyRow, logo, lr2);
-          else s += arText(x + 8, cyRow - rh / 2, bw * 0.6, rh, (name || '').slice(0, 12), win ? 900 : 700, Math.min(fs, 13), C.navy, { align: 'left', valign: 'center', minSize: 9, lh: 1.0 });
-          if (has(score)) s += `<text x="${(x + bw - 8).toFixed(1)}" y="${(cyRow + sfs * 0.34).toFixed(1)}" text-anchor="end" font-family="Anton" font-size="${sfs}" fill="${win ? C.navy : '#3a5a33'}">${esc(score)}</text>`;
+          const showScore = has(score);
+          const cxLogo = showScore ? x + bw * 0.40 : x + bw / 2;
+          if (has(logo)) s += rowLogo(cxLogo, cyRow, logo, lr2);
+          else s += arText(cxLogo - bw * 0.3, cyRow - rh / 2, bw * 0.6, rh, (name || '').slice(0, 10), win ? 900 : 700, Math.min(sfs - 4, 15), C.navy, { align: 'center', valign: 'center', minSize: 9, lh: 1.0 });
+          if (showScore) s += `<text x="${(x + bw - 10).toFixed(1)}" y="${(cyRow + sfs * 0.34).toFixed(1)}" text-anchor="end" font-family="Anton" font-size="${sfs}" fill="${win ? C.navy : '#3a5a33'}">${esc(score)}</text>`;
           return s;
         };
         body += row(y + rh / 2, m.homeLogo, m.home, m.hs, hWin);
