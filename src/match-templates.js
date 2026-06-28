@@ -49,8 +49,9 @@ module.exports = {
   },
 
   // Knockout draw / bracket — pairings for one round. ALL cup matches matter.
-  // list: "home | away | score? | homeLogo? | awayLogo?" per line (score optional →
-  // shows "ضد"). Teams show as their CREST (logo); falls back to the name if no logo.
+  // list: "home | away | score? | homeLogo? | awayLogo? | date? | time?" per line.
+  // Centre shows the score if played, else the kickoff time (+ date line) for the draw,
+  // else "ضد". Teams show as their CREST (logo); falls back to the name if no logo.
   knockout: {
     name: 'الأدوار الإقصائية',
     fields: ['comp', 'compLogo', 'round', 'list'],
@@ -62,15 +63,18 @@ module.exports = {
       let body = '';
       rows.forEach((r, i) => {
         const c = cells(r);
-        const home = c[0] || '', away = c[1] || '', score = c[2] || '', homeLogo = c[3] || '', awayLogo = c[4] || '';
-        const y = top + i * gap, cy = y + gap / 2, tb = (cy + fs * 0.34).toFixed(1);
+        const home = c[0] || '', away = c[1] || '', score = c[2] || '', homeLogo = c[3] || '', awayLogo = c[4] || '', date = c[5] || '', time = c[6] || '';
+        const upcoming = !has(score) && has(time); // not played → kickoff time + date
+        const y = top + i * gap, cy = y + gap / 2;
         body += `<rect x="120" y="${(y + 6).toFixed(0)}" width="840" height="${(gap - 12).toFixed(0)}" rx="12" fill="${C.navy}" opacity="0.05"/>`;
         // bracket tick on the right edge of each pairing
         body += `<path d="M970 ${(y + 14).toFixed(0)} h14 V ${(y + gap - 14).toFixed(0)} h-14" fill="none" stroke="${C.navy}" stroke-width="3" opacity="0.5"/>`;
-        const mid = has(score) ? score : 'ضد';
+        const mid = has(score) ? score : (has(time) ? time : 'ضد');
+        const boxCy = cy - (upcoming ? gap * 0.12 : 0); // lift the box to make room for the date
         const sw = Math.max(96, strW(mid, fs) + 34);
-        body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(cy - gap * 0.22).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.44).toFixed(0)}" rx="8" fill="${C.yellow}"/>`;
-        body += `<text x="540" y="${tb}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(mid)}</text>`;
+        body += `<rect x="${(540 - sw / 2).toFixed(0)}" y="${(boxCy - gap * 0.20).toFixed(0)}" width="${sw.toFixed(0)}" height="${(gap * 0.40).toFixed(0)}" rx="8" fill="${C.yellow}"/>`;
+        body += `<text x="540" y="${(boxCy + fs * 0.34).toFixed(1)}" text-anchor="middle" font-family="Anton" font-size="${fs}" fill="${C.navy}">${esc(mid)}</text>`;
+        if (upcoming && has(date)) body += `<text x="540" y="${(cy + gap * 0.30).toFixed(0)}" text-anchor="middle" font-family="Cairo" font-weight="700" font-size="${Math.max(14, Math.round(fs * 0.5))}" fill="#3a5a33">${esc(date)}</text>`;
         // home on the right, away on the left (RTL) — crest if available, else name
         body += has(homeLogo) ? rowLogo(735, cy, homeLogo, lr) : arBox(560, cy - gap / 2, 350, gap, home, 800, fs, C.navy);
         body += has(awayLogo) ? rowLogo(345, cy, awayLogo, lr) : arBox(170, cy - gap / 2, 350, gap, away, 800, fs, C.navy);
