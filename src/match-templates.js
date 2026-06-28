@@ -134,8 +134,8 @@ module.exports = {
       const lLast = (L[R - 2] || [])[0], rLast = (Rt[R - 2] || [])[0];
       const finalCy = (lLast && rLast) ? (lLast.cy + rLast.cy) / 2 : (topY + botY) / 2;
 
-      const boxH = Math.max(34, Math.min(96, gap0 * 0.82));
-      const bw = colW - 10;
+      const boxH = Math.max(36, Math.min(98, gap0 * 0.84));
+      const bw = Math.max(42, Math.min(colW - 8, Math.round(boxH * 0.82)));
       const fs = Math.max(10, Math.min(17, Math.floor(boxH * 0.26)));
       const line = (x1, y1, x2, y2) =>
         `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${C.navy}" stroke-width="1.4" opacity="0.4"/>`;
@@ -153,7 +153,7 @@ module.exports = {
         // CREST-ONLY: logo (left) + score (right). Short name only if a logo is missing.
         // crest fills the half-row (bigger now that names are gone); centered when
         // there's no score yet (live draw), shifted left to make room when scored.
-        const lr2 = Math.max(10, Math.min(Math.round(rh * 0.46), Math.round(bw * 0.32)));
+        const lr2 = Math.max(13, Math.min(Math.round(rh * 0.5), Math.round(bw * 0.46)));
         const sfs = Math.max(12, Math.min(28, Math.floor(rh * 0.64)));
         const row = (cyRow, logo, name, score, win) => {
           let s = '';
@@ -184,16 +184,39 @@ module.exports = {
         });
       };
 
-      // connectors first (boxes drawn on top)
+      // FINAL layout: the two finalists flank the centre; champion sits in the middle.
+      const cxC = colCx(R - 1);
+      const fbw = Math.min(bw * 1.1, colW * 0.86);
+      const fbh = Math.min(boxH * 0.66, 84);
+      const fOff = colW * 0.72;
+      const winSide = (m) => { const h = parseFloat(m.hs), a = parseFloat(m.as); return (isNaN(h) || isNaN(a)) ? null : (h > a ? 'home' : (a > h ? 'away' : null)); };
+      const lSemiWin = lLast && winSide(lLast.m) ? (winSide(lLast.m) === 'home' ? lLast.m.home : lLast.m.away) : null;
+      const homeLeft = !lSemiWin || finalM.home === lSemiWin || finalM.away !== lSemiWin;
+      const fLeft = homeLeft ? { logo: finalM.homeLogo, name: finalM.home, score: finalM.hs } : { logo: finalM.awayLogo, name: finalM.away, score: finalM.as };
+      const fRight = homeLeft ? { logo: finalM.awayLogo, name: finalM.away, score: finalM.as } : { logo: finalM.homeLogo, name: finalM.home, score: finalM.hs };
+
+      // single-team box for a finalist
+      const drawSingle = (cx, t, win) => {
+        const x = cx - fbw / 2, y = finalCy - fbh / 2;
+        body += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${fbw.toFixed(1)}" height="${fbh.toFixed(1)}" rx="8" fill="#ffffff" stroke="${C.navy}" stroke-width="1.6"/>`;
+        if (win) body += `<rect x="${(x + 2).toFixed(1)}" y="${(y + 2).toFixed(1)}" width="${(fbw - 4).toFixed(1)}" height="${(fbh - 4).toFixed(1)}" rx="6" fill="${C.yellow}" opacity="0.5"/>`;
+        const lr = Math.max(14, Math.min(Math.round(fbh * 0.42), Math.round(fbw * 0.4)));
+        const sc = has(t.score);
+        const cxL = sc ? cx - fbw * 0.14 : cx;
+        if (has(t.logo)) body += rowLogo(cxL, finalCy, t.logo, lr);
+        else if (t.name) body += arText(cxL - fbw * 0.34, y, fbw * 0.68, fbh, t.name.slice(0, 10), win ? 900 : 700, 15, C.navy, { align: 'center', valign: 'center', minSize: 9 });
+        if (sc) body += `<text x="${(x + fbw - 12).toFixed(1)}" y="${(finalCy + fbh * 0.16).toFixed(1)}" text-anchor="end" font-family="Anton" font-size="${Math.round(fbh * 0.4)}" fill="${win ? C.navy : '#3a5a33'}">${esc(t.score)}</text>`;
+      };
+
+      // connectors: non-final rounds, then semifinals → the finalist boxes
       for (let j = 0; j < R - 2; j++) { connect(L[j], L[j + 1], j, 'L'); connect(Rt[j], Rt[j + 1], j, 'R'); }
-      // semifinal → final (center)
       if (R >= 2) {
-        const cxC = colCx(R - 1);
-        if (lLast) { const e = colCx(R - 2) + bw / 2, pe = cxC - bw / 2, mx = (e + pe) / 2;
+        if (lLast) { const e = colCx(R - 2) + bw / 2, pe = (cxC - fOff) - fbw / 2, mx = (e + pe) / 2;
           body += line(e, lLast.cy, mx, lLast.cy) + line(mx, lLast.cy, mx, finalCy) + line(mx, finalCy, pe, finalCy); }
-        if (rLast) { const e = colCx(totalCols - R) - bw / 2, pe = cxC + bw / 2, mx = (e + pe) / 2;
+        if (rLast) { const e = colCx(totalCols - R) - bw / 2, pe = (cxC + fOff) + fbw / 2, mx = (e + pe) / 2;
           body += line(e, rLast.cy, mx, rLast.cy) + line(mx, rLast.cy, mx, finalCy) + line(mx, finalCy, pe, finalCy); }
       }
+
       // round labels
       let labels = '';
       for (let j = 0; j < R - 1; j++) {
@@ -201,19 +224,25 @@ module.exports = {
         labels += `<text x="${colCx(j).toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="15" fill="#3a5a33">${t}</text>`;
         labels += `<text x="${colCx(totalCols - 1 - j).toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="800" font-size="15" fill="#3a5a33">${t}</text>`;
       }
-      labels += `<text x="${colCx(R - 1).toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="16" fill="${C.navy}">${esc(rounds[R - 1].title || 'النهائي')}</text>`;
-      // boxes
+      labels += `<text x="${cxC.toFixed(1)}" y="288" text-anchor="middle" font-family="Cairo" font-weight="900" font-size="16" fill="${C.navy}">${esc(rounds[R - 1].title || 'النهائي')}</text>`;
+
+      // non-final boxes
       for (let j = 0; j < R - 1; j++) {
         (L[j] || []).forEach(o => drawBox(colCx(j), o.cy, o.m));
         (Rt[j] || []).forEach(o => drawBox(colCx(totalCols - 1 - j), o.cy, o.m));
       }
-      drawBox(colCx(R - 1), finalCy, finalM);
-      // champion ribbon under the final
+      // finalists flanking centre + champion in the middle
+      const lWins = has(fLeft.score) && parseFloat(fLeft.score) > parseFloat(fRight.score);
+      const rWins = has(fRight.score) && parseFloat(fRight.score) > parseFloat(fLeft.score);
+      drawSingle(cxC - fOff, fLeft, lWins);
+      drawSingle(cxC + fOff, fRight, rWins);
       let champ = '';
       if (has(d.champion)) {
-        const cx = colCx(R - 1), y = finalCy + boxH / 2 + 12;
-        champ = `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="36" rx="8" fill="${C.yellow}"/>` +
-          arBox(cx - bw / 2, y, bw, 36, d.champion, 900, fs + 2, C.navy);
+        const wLogo = winSide(finalM) === 'home' ? finalM.homeLogo : finalM.awayLogo;
+        const cr = Math.min(Math.round(fbh * 0.5), 30);
+        champ += `<circle cx="${cxC.toFixed(1)}" cy="${finalCy.toFixed(1)}" r="${cr + 6}" fill="${C.yellow}"/>`;
+        if (has(wLogo)) champ += rowLogo(cxC, finalCy, wLogo, cr);
+        champ += arBox(cxC - colW, finalCy + cr + 14, colW * 2, 30, d.champion, 900, 24, C.navy);
       }
       return header + labels + body + champ;
     }
