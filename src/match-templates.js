@@ -274,18 +274,41 @@ module.exports = {
     ${arBox(80, 902, 920, 40, 'من سيفوز؟ شاركنا توقّعك', 800, 28, C.navy)}`
   },
 
-  // Full-time result. score + per-team event lines (goal/card — one per line).
+  // Full-time result. score + per-team event lines (goal, or red card prefixed
+  // with a real red-card glyph) + optional penalty-shootout dots under the score
+  // (green = scored, red = missed). Red cards arrive as "[R] name time" lines;
+  // penalties as a "1 1 0 1" marks string (1 = scored, 0 = missed) in shot order.
   result: {
     name: 'نتيجة المباراة',
-    fields: ['comp', 'compLogo', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'hs', 'as', 'homeEvents', 'awayEvents'],
+    fields: ['comp', 'compLogo', 'round', 'home', 'away', 'homeLogo', 'awayLogo', 'hs', 'as', 'homeEvents', 'awayEvents', 'homePens', 'awayPens'],
     content: d => {
-      const hE = listRows(d.homeEvents, 8), aE = listRows(d.awayEvents, 8);
+      const parse = s => listRows(s, 8).map(r =>
+        /^\[R\]/.test(r) ? { red: true, text: r.replace(/^\[R\]\s*/, '') } : { red: false, text: r });
+      const hE = parse(d.homeEvents), aE = parse(d.awayEvents);
       const n = Math.max(hE.length, aE.length, 1);
-      let fs = Math.floor(150 / (n * 1.45)); fs = Math.max(14, Math.min(28, fs));
-      // team name is already shown in the score bar above — events list only here
-      const col = (x, arr) =>
-        `<line x1="${x + 60}" y1="800" x2="${x + 360}" y2="800" stroke="${C.yellow}" stroke-width="3"/>` +
-        arBlock(x, 812, 420, 160, arr.join('\n'), 600, fs, '#13350c');
+      let fs = Math.floor(150 / (n * 1.45)); fs = Math.max(13, Math.min(26, fs));
+      const rowH = Math.min(30, 160 / n);
+      // team name is already shown in the score bar above — events list only here.
+      // RTL: text right-aligned with a reserved gutter for the red-card glyph.
+      const col = (x, arr) => {
+        const xR = x + 360, gutter = 30;
+        let s = `<line x1="${x + 60}" y1="800" x2="${x + 360}" y2="800" stroke="${C.yellow}" stroke-width="3"/>`;
+        arr.forEach((o, i) => {
+          const cy = 812 + i * rowH + rowH / 2, tb = (cy + fs * 0.35).toFixed(1);
+          if (o.red) {
+            const rw = fs * 0.62, rh = fs * 0.96;
+            s += `<rect x="${(xR - rw).toFixed(1)}" y="${(cy - rh / 2).toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" rx="2" fill="${C.red}"/>`;
+          }
+          s += `<text x="${(xR - gutter).toFixed(1)}" y="${tb}" text-anchor="end" direction="rtl" font-family="Cairo" font-weight="600" font-size="${fs}" fill="#13350c">${esc(o.text)}</text>`;
+        });
+        return s;
+      };
+      // penalty-shootout dots: home grows left of centre, away grows right.
+      const pens = (marks, cx0, dir) =>
+        String(marks == null ? '' : marks).split(/\s+/).filter(Boolean)
+          .map((m, i) => `<circle cx="${(cx0 + dir * i * 17).toFixed(1)}" cy="668" r="6.5" fill="${m === '0' ? C.red : C.yellow}" stroke="${C.navy}" stroke-width="1"/>`)
+          .join('');
+      const hasPens = has(d.homePens) || has(d.awayPens);
       return `
     ${blockTitle('FULL', 'TIME')}
     ${has(d.compLogo) ? rowLogo(540, 345, d.compLogo, 44) : arBox(80, 322, 920, 46, d.comp, 800, 34, C.navy)}
@@ -296,6 +319,7 @@ module.exports = {
     <rect x="535" y="493" width="10" height="140" fill="${C.navy}"/>
     <text x="455" y="612" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.navy}">${esc(d.hs)}</text>
     <text x="625" y="612" text-anchor="middle" font-family="Anton" font-size="150" fill="${C.navy}">${esc(d.as)}</text>
+    ${hasPens ? pens(d.homePens, 505, -1) + pens(d.awayPens, 575, 1) : ''}
     <rect x="200" y="690" width="680" height="74" rx="6" fill="${C.yellow}"/>
     ${arBox(210, 690, 300, 74, d.home, 900, 40, C.navy)}
     <rect x="505" y="698" width="70" height="58" fill="${C.navy}"/>

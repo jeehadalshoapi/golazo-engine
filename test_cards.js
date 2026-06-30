@@ -94,8 +94,10 @@ const SAMPLES = {
   result: {
     comp: 'دوري روشن السعودي', round: 'الجولة 24',
     home: 'الهلال', away: 'النصر', hs: '3', as: '1',
-    homeEvents: 'ميتروفيتش 23\nمالكوم 56\nسالم الدوسري 78',
-    awayEvents: 'رونالدو 90+2\nبطاقة حمراء: تيليس 70',
+    // red cards arrive as "[R] name time" → drawn with a red-card glyph;
+    // pens (homePens/awayPens) "1 0 1" → green/red shootout dots under the score.
+    homeEvents: 'ميتروفيتش 23\nمالكوم 56\n[R] سالم الدوسري 78',
+    awayEvents: 'رونالدو 90+2\n[R] تيليس 70',
   },
   matchstats: {
     home: 'الهلال', away: 'النصر', score: '3 - 1',
